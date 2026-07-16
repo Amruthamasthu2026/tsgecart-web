@@ -8,6 +8,12 @@ import { ProtectedRoute } from '../routes/ProtectedRoute';
 const HomePage = lazy(() =>
   import('../pages/customer/HomePage').then((m) => ({ default: m.HomePage })),
 );
+const ProductsPage = lazy(() =>
+  import('../pages/customer/ProductsPage').then((m) => ({ default: m.ProductsPage })),
+);
+const ProductDetailPage = lazy(() =>
+  import('../pages/customer/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })),
+);
 const AccountPage = lazy(() =>
   import('../pages/customer/AccountPage').then((m) => ({ default: m.AccountPage })),
 );
@@ -47,6 +53,8 @@ export const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       { index: true, element: wrap(<HomePage />) },
+      { path: 'products', element: wrap(<ProductsPage />) },
+      { path: 'products/:slug', element: wrap(<ProductDetailPage />) },
       {
         element: <ProtectedRoute />,
         children: [{ path: 'account', element: wrap(<AccountPage />) }],

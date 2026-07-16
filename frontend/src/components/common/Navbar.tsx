@@ -1,8 +1,17 @@
-import { Link } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function Navbar() {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+
+  const onSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    navigate(q ? `/products?search=${encodeURIComponent(q)}` : '/products');
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-white/80 backdrop-blur-md">
@@ -16,15 +25,17 @@ export function Navbar() {
           </span>
         </Link>
 
-        <div className="hidden flex-1 items-center md:flex">
+        <form onSubmit={onSearch} className="hidden flex-1 items-center md:flex">
           <div className="relative w-full max-w-xl">
             <input
               type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search for groceries, fruits, vegetables…"
               className="w-full rounded-full border border-black/10 bg-gray-50 px-5 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
             />
           </div>
-        </div>
+        </form>
 
         <nav className="flex items-center gap-2">
           {isAuthenticated ? (

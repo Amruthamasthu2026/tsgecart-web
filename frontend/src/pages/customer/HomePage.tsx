@@ -1,22 +1,8 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../lib/apiClient';
-
-interface HealthResponse {
-  status: string;
-  services: { database: string; redis: string };
-}
-
-const CATEGORIES = [
-  'Fruits & Vegetables',
-  'Dairy & Eggs',
-  'Snacks',
-  'Beverages',
-  'Bakery',
-  'Household',
-  'Personal Care',
-  'Baby Care',
-];
+import { catalogApi } from '../../features/catalog/catalog.api';
+import { ProductCard } from '../../components/product/ProductCard';
 
 const ETAS = [
   { label: '10–20 min', desc: 'Nearby essentials' },
@@ -25,14 +11,14 @@ const ETAS = [
 ];
 
 export function HomePage() {
-  // Phase 0 smoke check — confirms the SPA can reach the API.
-  const { data: health } = useQuery({
-    queryKey: ['health'],
-    queryFn: async () => {
-      const res = await apiClient.get<{ data: HealthResponse }>('/health');
-      return res.data.data;
-    },
-    retry: false,
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => catalogApi.listCategories(),
+  });
+
+  const { data: featured } = useQuery({
+    queryKey: ['products', 'featured'],
+    queryFn: () => catalogApi.listProducts({ featured: true, limit: 12 }),
   });
 
   return (
@@ -56,7 +42,9 @@ export function HomePage() {
           <p className="mt-4 text-ink/80">
             Fruits, vegetables, dairy and daily essentials at your door in minutes.
           </p>
-          <button className="btn-dark mt-6">Start shopping</button>
+          <Link to="/products" className="btn-dark mt-6 inline-flex">
+            Start shopping
+          </Link>
         </div>
       </motion.section>
 
@@ -71,25 +59,41 @@ export function HomePage() {
       </section>
 
       {/* Category grid */}
-      <section className="mt-10">
-        <h2 className="mb-4 text-xl font-bold">Shop by category</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {CATEGORIES.map((cat) => (
-            <div
-              key={cat}
-              className="card flex h-28 items-end p-4 transition-transform hover:-translate-y-1"
-            >
-              <span className="text-sm font-semibold">{cat}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      {categories.length > 0 && (
+        <section className="mt-10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold">Shop by category</h2>
+            <Link to="/products" className="text-sm font-medium text-brand-700 hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {categories.map((cat) => (
+              <Link
+                key={cat.id}
+                to={`/products?category=${cat.slug}`}
+                className="card flex h-28 flex-col items-start justify-end p-4 transition-transform hover:-translate-y-1"
+              >
+                <span className="text-sm font-semibold">{cat.name}</span>
+                {cat._count && (
+                  <span className="text-xs text-ink-muted">{cat._count.products} items</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {health && (
-        <p className="mt-10 text-center text-xs text-ink-muted">
-          API status: {health.status} · DB: {health.services.database} · Cache:{' '}
-          {health.services.redis}
-        </p>
+      {/* Featured products */}
+      {featured && featured.products.length > 0 && (
+        <section className="mt-12">
+          <h2 className="mb-4 text-xl font-bold">Featured today</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {featured.products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

@@ -133,6 +133,115 @@ async function main(): Promise<void> {
   });
   console.log('  • Sample coupon WELCOME50');
 
+  // ── Catalog: categories + sample products ────────────────────
+  const categoryData = [
+    { name: 'Fruits & Vegetables', slug: 'fruits-vegetables' },
+    { name: 'Dairy & Eggs', slug: 'dairy-eggs' },
+    { name: 'Snacks & Munchies', slug: 'snacks-munchies' },
+    { name: 'Beverages', slug: 'beverages' },
+    { name: 'Bakery', slug: 'bakery' },
+    { name: 'Household Essentials', slug: 'household-essentials' },
+  ];
+  const categories: Record<string, string> = {};
+  for (const [i, c] of categoryData.entries()) {
+    const cat = await prisma.category.upsert({
+      where: { slug: c.slug },
+      update: {},
+      create: { name: c.name, slug: c.slug, sortOrder: i, isActive: true },
+    });
+    categories[c.slug] = cat.id;
+  }
+  console.log(`  • ${categoryData.length} categories`);
+
+  const products = [
+    {
+      name: 'Fresh Bananas',
+      slug: 'fresh-bananas',
+      category: 'fruits-vegetables',
+      gstRate: 0,
+      variants: [
+        { sku: 'BAN-500', unitLabel: '500 g', mrp: 40, price: 32, stock: 120, isDefault: true },
+        { sku: 'BAN-1KG', unitLabel: '1 kg', mrp: 75, price: 60, stock: 80, isDefault: false },
+      ],
+    },
+    {
+      name: 'Farm Fresh Tomatoes',
+      slug: 'farm-fresh-tomatoes',
+      category: 'fruits-vegetables',
+      gstRate: 0,
+      variants: [
+        { sku: 'TOM-500', unitLabel: '500 g', mrp: 30, price: 24, stock: 100, isDefault: true },
+      ],
+    },
+    {
+      name: 'Full Cream Milk',
+      slug: 'full-cream-milk',
+      category: 'dairy-eggs',
+      gstRate: 5,
+      variants: [
+        { sku: 'MILK-500', unitLabel: '500 ml', mrp: 34, price: 33, stock: 200, isDefault: true },
+        { sku: 'MILK-1L', unitLabel: '1 L', mrp: 66, price: 64, stock: 150, isDefault: false },
+      ],
+    },
+    {
+      name: 'Brown Eggs (Pack of 6)',
+      slug: 'brown-eggs-pack-of-6',
+      category: 'dairy-eggs',
+      gstRate: 0,
+      variants: [
+        { sku: 'EGG-6', unitLabel: '6 pcs', mrp: 72, price: 66, stock: 90, isDefault: true },
+      ],
+    },
+    {
+      name: 'Salted Potato Chips',
+      slug: 'salted-potato-chips',
+      category: 'snacks-munchies',
+      gstRate: 12,
+      variants: [
+        { sku: 'CHIP-52', unitLabel: '52 g', mrp: 20, price: 20, stock: 300, isDefault: true },
+      ],
+    },
+    {
+      name: 'Sparkling Cola',
+      slug: 'sparkling-cola',
+      category: 'beverages',
+      gstRate: 18,
+      variants: [
+        { sku: 'COLA-750', unitLabel: '750 ml', mrp: 40, price: 38, stock: 250, isDefault: true },
+        { sku: 'COLA-2L', unitLabel: '2 L', mrp: 95, price: 90, stock: 120, isDefault: false },
+      ],
+    },
+  ];
+
+  for (const p of products) {
+    const existing = await prisma.product.findUnique({ where: { slug: p.slug } });
+    if (existing) continue;
+    await prisma.product.create({
+      data: {
+        name: p.name,
+        slug: p.slug,
+        description: `${p.name} — fresh and delivered fast across Hyderabad.`,
+        categoryId: categories[p.category],
+        images: [],
+        gstRate: p.gstRate,
+        isActive: true,
+        isFeatured: true,
+        isBestSeller: p.variants[0].price < 40,
+        variants: {
+          create: p.variants.map((v) => ({
+            sku: v.sku,
+            unitLabel: v.unitLabel,
+            mrp: v.mrp,
+            price: v.price,
+            isDefault: v.isDefault,
+            inventory: { create: { stock: v.stock, lowStockThreshold: 10 } },
+          })),
+        },
+      },
+    });
+  }
+  console.log(`  • ${products.length} sample products with variants + inventory`);
+
   // ── Platform settings ────────────────────────────────────────
   const settings: Array<{ key: string; value: unknown }> = [
     { key: 'store.name', value: 'TSG eCart' },

@@ -5,6 +5,10 @@ import { asyncHandler } from '../shared/asyncHandler.js';
 import { sendSuccess } from '../shared/apiResponse.js';
 import { authRouter } from '../modules/auth/auth.routes.js';
 import { usersRouter } from '../modules/users/users.routes.js';
+import { categoriesRouter } from '../modules/categories/categories.routes.js';
+import { brandsRouter } from '../modules/brands/brands.module.js';
+import { productsRouter } from '../modules/products/products.routes.js';
+import { uploadsRouter } from '../modules/uploads/uploads.module.js';
 
 /**
  * Root API router. Feature module routers are mounted here as each phase
@@ -33,3 +37,7 @@ apiRouter.get(
 // Feature modules
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/users', usersRouter);
+apiRouter.use('/categories', categoriesRouter);
+apiRouter.use('/brands', brandsRouter);
+apiRouter.use('/products', productsRouter);
+apiRouter.use('/uploads', uploadsRouter);
