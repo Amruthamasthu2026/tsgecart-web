@@ -3,6 +3,8 @@ import { prisma } from '../config/prisma.js';
 import { redis } from '../config/redis.js';
 import { asyncHandler } from '../shared/asyncHandler.js';
 import { sendSuccess } from '../shared/apiResponse.js';
+import { authRouter } from '../modules/auth/auth.routes.js';
+import { usersRouter } from '../modules/users/users.routes.js';
 
 /**
  * Root API router. Feature module routers are mounted here as each phase
@@ -27,3 +29,7 @@ apiRouter.get(
     });
   }),
 );
+
+// Feature modules
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/users', usersRouter);

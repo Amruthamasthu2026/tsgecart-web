@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function Navbar() {
+  const { isAuthenticated, user } = useAuth();
+
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-white/80 backdrop-blur-md">
       <div className="container-app flex h-16 items-center justify-between gap-4">
@@ -24,9 +27,15 @@ export function Navbar() {
         </div>
 
         <nav className="flex items-center gap-2">
-          <Link to="/login" className="btn-ghost hidden sm:inline-flex">
-            Sign in
-          </Link>
+          {isAuthenticated ? (
+            <Link to="/account" className="btn-ghost hidden sm:inline-flex">
+              {user?.name?.split(' ')[0] ?? 'Account'}
+            </Link>
+          ) : (
+            <Link to="/login" className="btn-ghost hidden sm:inline-flex">
+              Sign in
+            </Link>
+          )}
           <Link to="/cart" className="btn-primary">
             Cart
           </Link>
