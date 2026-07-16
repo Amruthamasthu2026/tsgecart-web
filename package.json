@@ -1,0 +1,22 @@
+{
+  "name": "tsgecart-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TSG eCart — Fresh Groceries Delivered Fast. Quick-commerce grocery platform for Hyderabad.",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "lint": "npm --workspace backend run lint && npm --workspace frontend run lint",
+    "test": "npm --workspace backend run test",
+    "docker:up": "docker compose up -d mysql redis",
+    "docker:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

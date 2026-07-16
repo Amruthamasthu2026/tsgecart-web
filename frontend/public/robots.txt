@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /checkout
+Disallow: /account
+
+Sitemap: https://tsgecart.com/sitemap.xml

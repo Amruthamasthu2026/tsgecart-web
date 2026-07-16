@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-white text-ink font-sans;
+  }
+}
+
+@layer components {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-ink hover:bg-brand-600 focus:ring-brand-400 shadow-sm;
+  }
+
+  .btn-dark {
+    @apply btn bg-ink text-white hover:bg-ink-soft focus:ring-ink;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-ink hover:bg-brand-50;
+  }
+
+  .card {
+    @apply rounded-2xl bg-white shadow-card ring-1 ring-black/5;
+  }
+
+  .glass {
+    @apply bg-white/70 backdrop-blur-md ring-1 ring-black/5;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-gray-100;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent;
+    content: '';
+  }
+}
