@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { accountApi, type Address, type AddressPayload } from '../../features/account/account.api';
@@ -78,6 +79,15 @@ export function AccountPage() {
         <Button variant="ghost" onClick={() => logout()}>
           Sign out
         </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link to="/orders" className="btn-ghost">
+          My orders
+        </Link>
+        <Link to="/wishlist" className="btn-ghost">
+          Wishlist
+        </Link>
       </div>
 
       {!user?.emailVerified && (

@@ -13,6 +13,9 @@ import { cartRouter } from '../modules/cart/cart.routes.js';
 import { wishlistRouter } from '../modules/wishlist/wishlist.routes.js';
 import { deliveryRouter } from '../modules/delivery/delivery.routes.js';
 import { couponsRouter } from '../modules/coupons/coupons.routes.js';
+import { ordersRouter } from '../modules/orders/orders.routes.js';
+import { adminOrdersRouter } from '../modules/orders/adminOrders.routes.js';
+import { paymentsRouter } from '../modules/payments/payments.routes.js';
 
 /**
  * Root API router. Feature module routers are mounted here as each phase
@@ -49,3 +52,6 @@ apiRouter.use('/cart', cartRouter);
 apiRouter.use('/wishlist', wishlistRouter);
 apiRouter.use('/delivery', deliveryRouter);
 apiRouter.use('/coupons', couponsRouter);
+apiRouter.use('/orders', ordersRouter);
+apiRouter.use('/admin/orders', adminOrdersRouter);
+apiRouter.use('/payments', paymentsRouter);
