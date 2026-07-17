@@ -37,5 +37,30 @@ export const updateLocalitySchema = createLocalitySchema.partial();
 
 export const idParam = z.object({ id: z.string().cuid() });
 
+// Bulk pincode import / actions (admin)
+export const bulkImportSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        code: z.string().trim().max(10),
+        zoneName: z.string().trim().max(80).optional(),
+      }),
+    )
+    .min(1, 'Provide at least one pincode')
+    .max(20000, 'Too many pincodes in a single import'),
+  zoneId: z.string().cuid().optional(),
+  mode: z.enum(['skip', 'upsert']).default('skip'),
+});
+
+export const importHyderabadSchema = z.object({
+  zoneId: z.string().cuid().optional(),
+});
+
+export const bulkActionSchema = z.object({
+  ids: z.array(z.string().cuid()).min(1, 'Select at least one pincode').max(20000),
+  action: z.enum(['activate', 'deactivate', 'move', 'delete']),
+  zoneId: z.string().cuid().optional(),
+});
+
 export type CreateZoneInput = z.infer<typeof createZoneSchema>;
 export type CreatePincodeInput = z.infer<typeof createPincodeSchema>;

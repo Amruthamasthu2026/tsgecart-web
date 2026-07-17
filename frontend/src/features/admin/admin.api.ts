@@ -16,6 +16,25 @@ export interface SalesPoint {
   orders: number;
 }
 
+export interface BulkImportResult {
+  toCreate: Array<{ code: string; zoneId: string }>;
+  toUpdate: Array<{ code: string; zoneId: string }>;
+  invalid: Array<{ code: string; reason: string }>;
+  failed: Array<{ code: string; reason: string }>;
+  duplicates: string[];
+  skipped: string[];
+  warnings: Array<{ code: string; message: string }>;
+  stats: {
+    total: number;
+    added: number;
+    updated: number;
+    skipped: number;
+    invalid: number;
+    failed: number;
+    duplicates: number;
+  };
+}
+
 export const adminApi = {
   // Analytics
   async dashboard(): Promise<DashboardStats> {
@@ -126,6 +145,26 @@ export const adminApi = {
   },
   async deletePincode(id: string) {
     await apiClient.delete(`/delivery/pincodes/${id}`);
+  },
+  async bulkImportPincodes(
+    items: Array<{ code: string; zoneName?: string }>,
+    zoneId?: string,
+    mode: 'skip' | 'upsert' = 'skip',
+  ): Promise<BulkImportResult> {
+    const { data } = await apiClient.post('/delivery/pincodes/bulk', { items, zoneId, mode });
+    return data.data;
+  },
+  async importHyderabad(zoneId?: string): Promise<BulkImportResult> {
+    const { data } = await apiClient.post('/delivery/pincodes/import-hyderabad', { zoneId });
+    return data.data;
+  },
+  async bulkActionPincodes(
+    ids: string[],
+    action: 'activate' | 'deactivate' | 'move' | 'delete',
+    zoneId?: string,
+  ): Promise<{ affected: number }> {
+    const { data } = await apiClient.post('/delivery/pincodes/bulk-action', { ids, action, zoneId });
+    return data.data;
   },
 
   // Reviews

@@ -1,6 +1,7 @@
 import { PrismaClient, Role, CouponType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { customAlphabet } from 'nanoid';
+import { loadHyderabadPincodes } from '../src/shared/pincodeData.js';
 
 const prisma = new PrismaClient();
 const refCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8);
@@ -19,12 +20,10 @@ const PERMISSIONS = [
   { key: 'settings.manage', description: 'Manage platform settings & roles' },
 ];
 
-// Representative Hyderabad pincodes for the initial serviceable area.
-const HYDERABAD_PINCODES = [
-  '500001', '500002', '500003', '500004', '500008', '500016', '500018',
-  '500028', '500032', '500033', '500034', '500035', '500038', '500044',
-  '500072', '500081', '500084', '500089', '500090',
-];
+// Hyderabad serviceable area — loaded from the maintained CSV dataset
+// (backend/prisma/data/hyderabad-pincodes.csv), shared with the admin
+// "Import Hyderabad pincodes" action so there is a single source of truth.
+const HYDERABAD_PINCODES = loadHyderabadPincodes();
 
 async function main(): Promise<void> {
   console.log('🌱 Seeding TSG eCart database…');

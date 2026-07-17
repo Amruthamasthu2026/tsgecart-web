@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { deliveryService } from './delivery.service.js';
+import { deliveryBulkService } from './delivery.bulk.service.js';
 import { sendSuccess } from '../../shared/apiResponse.js';
 import { asyncHandler } from '../../shared/asyncHandler.js';
 import { validate } from '../../middlewares/validate.js';
@@ -17,6 +18,9 @@ import {
   createLocalitySchema,
   updateLocalitySchema,
   idParam,
+  bulkImportSchema,
+  importHyderabadSchema,
+  bulkActionSchema,
 } from './delivery.validators.js';
 
 export const deliveryRouter = Router();
@@ -97,6 +101,36 @@ deliveryRouter.post(
     sendSuccess(res, { pincode }, 201);
   }),
 );
+
+// ── Bulk pincode operations (defined before /pincodes/:id) ───
+deliveryRouter.post(
+  '/pincodes/bulk',
+  ...manage,
+  validate({ body: bulkImportSchema }),
+  asyncHandler(async (req, res) => {
+    const result = await deliveryBulkService.bulkImport(req.body);
+    sendSuccess(res, result, 201);
+  }),
+);
+deliveryRouter.post(
+  '/pincodes/import-hyderabad',
+  ...manage,
+  validate({ body: importHyderabadSchema }),
+  asyncHandler(async (req, res) => {
+    const result = await deliveryBulkService.importHyderabad(req.body.zoneId);
+    sendSuccess(res, result, 201);
+  }),
+);
+deliveryRouter.post(
+  '/pincodes/bulk-action',
+  ...manage,
+  validate({ body: bulkActionSchema }),
+  asyncHandler(async (req, res) => {
+    const result = await deliveryBulkService.bulkAction(req.body);
+    sendSuccess(res, result);
+  }),
+);
+
 deliveryRouter.put(
   '/pincodes/:id',
   ...manage,
