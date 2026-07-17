@@ -3,6 +3,8 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { catalogApi, type ProductFilters } from '../../features/catalog/catalog.api';
 import { ProductCard } from '../../components/product/ProductCard';
 import { Seo } from '../../components/Seo';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Link } from 'react-router-dom';
 
 const SORTS: Array<{ label: string; sort: ProductFilters['sort']; order: ProductFilters['order'] }> = [
   { label: 'Newest', sort: 'createdAt', order: 'desc' },
@@ -47,64 +49,86 @@ export function ProductsPage() {
     setParams(next);
   };
 
-  const pageTitle = search
-    ? `Search: ${search}`
+  const heading = search
+    ? `Results for “${search}”`
     : category
-      ? `${category.replace(/-/g, ' ')} · Groceries`
+      ? category.replace(/-/g, ' ')
       : 'All products';
+  const total = data?.meta.total ?? 0;
 
   return (
     <div className="container-app py-8">
       <Seo
-        title={pageTitle}
+        title={search ? `Search: ${search}` : category ? `${category.replace(/-/g, ' ')} · Groceries` : 'All products'}
         description="Browse fresh groceries, fruits, vegetables, dairy and daily essentials on TSG eCart."
       />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold">
-          {search ? `Results for "${search}"` : category ? category.replace(/-/g, ' ') : 'All products'}
-        </h1>
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold capitalize text-ink sm:text-3xl">{heading}</h1>
+          {!isLoading && <p className="mt-1 text-sm text-ink-muted">{total} product{total === 1 ? '' : 's'} found</p>}
+        </div>
         <select
           value={`${sortKey}:${order}`}
           onChange={(e) => {
             const [s, o] = e.target.value.split(':');
             update({ sort: s, order: o });
           }}
-          className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm"
+          className="rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-medium outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
         >
           {SORTS.map((s) => (
             <option key={s.label} value={`${s.sort}:${s.order}`}>
-              {s.label}
+              Sort: {s.label}
             </option>
           ))}
         </select>
       </div>
 
+      {/* Category chips (mobile + as quick filters) */}
+      <div className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+        <button
+          onClick={() => update({ category: undefined })}
+          className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition ${!category ? 'bg-brand text-ink' : 'bg-slate-100 text-ink-muted'}`}
+        >
+          All
+        </button>
+        {categories.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => update({ category: c.slug })}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition ${category === c.slug ? 'bg-brand text-ink' : 'bg-slate-100 text-ink-muted'}`}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-6 grid gap-8 lg:grid-cols-[220px_1fr]">
-        {/* Category sidebar */}
+        {/* Category sidebar (desktop) */}
         <aside className="hidden lg:block">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">
-            Categories
-          </h2>
-          <ul className="space-y-1">
-            <li>
-              <button
-                onClick={() => update({ category: undefined })}
-                className={`w-full rounded-lg px-3 py-1.5 text-left text-sm ${!category ? 'bg-brand-50 font-semibold' : 'hover:bg-gray-50'}`}
-              >
-                All
-              </button>
-            </li>
-            {categories.map((c) => (
-              <li key={c.id}>
+          <div className="card p-4">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink-muted">Categories</h2>
+            <ul className="space-y-1">
+              <li>
                 <button
-                  onClick={() => update({ category: c.slug })}
-                  className={`w-full rounded-lg px-3 py-1.5 text-left text-sm ${category === c.slug ? 'bg-brand-50 font-semibold' : 'hover:bg-gray-50'}`}
+                  onClick={() => update({ category: undefined })}
+                  className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${!category ? 'bg-brand-100 font-semibold text-ink' : 'text-ink-muted hover:bg-slate-50'}`}
                 >
-                  {c.name}
+                  All products
                 </button>
               </li>
-            ))}
-          </ul>
+              {categories.map((c) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => update({ category: c.slug })}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${category === c.slug ? 'bg-brand-100 font-semibold text-ink' : 'text-ink-muted hover:bg-slate-50'}`}
+                  >
+                    {c.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </aside>
 
         {/* Product grid */}
@@ -116,7 +140,11 @@ export function ProductsPage() {
               ))}
             </div>
           ) : isError ? (
-            <p className="text-ink-muted">Couldn't load products. Please try again.</p>
+            <EmptyState
+              emoji="⚠️"
+              title="Couldn't load products"
+              message="Something went wrong. Please refresh and try again."
+            />
           ) : data && data.products.length > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
@@ -125,27 +153,21 @@ export function ProductsPage() {
                 ))}
               </div>
               {data.meta.totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-center gap-2">
+                <div className="mt-10 flex items-center justify-center gap-3">
                   <button
                     disabled={!data.meta.hasPrev}
-                    onClick={() => setParams((p) => {
-                      p.set('page', String(page - 1));
-                      return p;
-                    })}
-                    className="btn-ghost disabled:opacity-40"
+                    onClick={() => setParams((p) => { p.set('page', String(page - 1)); return p; })}
+                    className="btn-ghost px-5 disabled:opacity-40"
                   >
                     Previous
                   </button>
-                  <span className="text-sm text-ink-muted">
+                  <span className="text-sm font-medium text-ink-muted">
                     Page {data.meta.page} of {data.meta.totalPages}
                   </span>
                   <button
                     disabled={!data.meta.hasNext}
-                    onClick={() => setParams((p) => {
-                      p.set('page', String(page + 1));
-                      return p;
-                    })}
-                    className="btn-ghost disabled:opacity-40"
+                    onClick={() => setParams((p) => { p.set('page', String(page + 1)); return p; })}
+                    className="btn-ghost px-5 disabled:opacity-40"
                   >
                     Next
                   </button>
@@ -153,7 +175,12 @@ export function ProductsPage() {
               )}
             </>
           ) : (
-            <p className="text-ink-muted">No products found.</p>
+            <EmptyState
+              emoji="🔍"
+              title="No products found"
+              message={search ? `We couldn't find anything for “${search}”.` : 'Try a different category.'}
+              action={<Link to="/products" className="btn-primary">Browse all products</Link>}
+            />
           )}
         </div>
       </div>

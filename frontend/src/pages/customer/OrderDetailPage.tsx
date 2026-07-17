@@ -4,6 +4,9 @@ import { motion } from 'framer-motion';
 import { ordersApi } from '../../features/orders/orders.api';
 import { OrderTimeline } from '../../components/order/OrderTimeline';
 import { Button } from '../../components/ui/Button';
+import { Spinner } from '../../components/ui/Spinner';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Seo } from '../../components/Seo';
 import { formatCurrency, formatDate } from '../../lib/format';
 
 const CANCELLABLE = ['CONFIRMED', 'PREPARING'];
@@ -40,25 +43,26 @@ export function OrderDetailPage() {
   if (isLoading) {
     return (
       <div className="container-app py-8">
-        <div className="skeleton h-64 w-full" />
+        <Spinner />
       </div>
     );
   }
   if (!order) {
     return (
-      <div className="container-app grid min-h-[50vh] place-items-center text-center">
-        <div>
-          <h1 className="text-2xl font-bold">Order not found</h1>
-          <Link to="/orders" className="btn-primary mt-4 inline-flex">
-            Your orders
-          </Link>
-        </div>
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="📦"
+          title="Order not found"
+          message="We couldn't find this order. It may have been removed."
+          action={<Link to="/orders" className="btn-primary">Your orders</Link>}
+        />
       </div>
     );
   }
 
   return (
     <div className="container-app py-8">
+      <Seo title={`Order ${order.orderNumber}`} noindex />
       {justPlaced && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}

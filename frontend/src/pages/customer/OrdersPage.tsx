@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ordersApi } from '../../features/orders/orders.api';
 import { formatCurrency, formatDate } from '../../lib/format';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Seo } from '../../components/Seo';
 
 const STATUS_STYLES: Record<string, string> = {
   CONFIRMED: 'bg-blue-50 text-blue-700',
@@ -20,7 +23,8 @@ export function OrdersPage() {
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-extrabold">Your orders</h1>
+      <Seo title="Your Orders" noindex />
+      <PageHeader title="Your orders" subtitle="Track and manage your recent orders" />
 
       {isLoading ? (
         <div className="mt-6 space-y-3">
@@ -29,35 +33,34 @@ export function OrdersPage() {
           ))}
         </div>
       ) : !data || data.orders.length === 0 ? (
-        <div className="mt-10 text-center">
-          <p className="text-5xl">📦</p>
-          <p className="mt-4 text-ink-muted">You haven't placed any orders yet.</p>
-          <Link to="/products" className="btn-primary mt-6 inline-flex">
-            Start shopping
-          </Link>
-        </div>
+        <EmptyState
+          emoji="📦"
+          title="No orders yet"
+          message="When you place an order, it'll show up here with live tracking."
+          action={<Link to="/products" className="btn-primary">Start shopping</Link>}
+        />
       ) : (
         <div className="mt-6 space-y-3">
           {data.orders.map((order) => (
             <Link
               key={order.id}
               to={`/orders/${order.id}`}
-              className="card flex flex-wrap items-center justify-between gap-3 p-4 transition hover:-translate-y-0.5"
+              className="card card-hover flex flex-wrap items-center justify-between gap-3 p-4"
             >
-              <div>
-                <p className="text-sm font-bold">{order.orderNumber}</p>
-                <p className="text-xs text-ink-muted">
-                  {formatDate(order.placedAt)} · {order.items.length} item
-                  {order.items.length > 1 ? 's' : ''}
-                </p>
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-100 text-xl">📦</span>
+                <div>
+                  <p className="text-sm font-bold text-ink">{order.orderNumber}</p>
+                  <p className="text-xs text-ink-muted">
+                    {formatDate(order.placedAt)} · {order.items.length} item{order.items.length > 1 ? 's' : ''}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLES[order.status]}`}
-                >
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLES[order.status]}`}>
                   {order.status.replace(/_/g, ' ')}
                 </span>
-                <span className="text-sm font-bold">{formatCurrency(order.total)}</span>
+                <span className="text-base font-extrabold text-ink">{formatCurrency(order.total)}</span>
               </div>
             </Link>
           ))}

@@ -5,6 +5,9 @@ import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { cartApi, type CheckoutSummary } from '../../features/cart/cart.api';
 import { Button } from '../../components/ui/Button';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Seo } from '../../components/Seo';
 import { formatCurrency } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
 
@@ -32,35 +35,34 @@ export function CartPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container-app grid min-h-[50vh] place-items-center text-center">
-        <div>
-          <h1 className="text-2xl font-bold">Your cart is waiting</h1>
-          <p className="mt-2 text-ink-muted">Sign in to view your cart and check out.</p>
-          <Link to="/login" className="btn-primary mt-6 inline-flex">
-            Sign in
-          </Link>
-        </div>
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="🛒"
+          title="Your cart is waiting"
+          message="Sign in to view your cart and check out."
+          action={<Link to="/login" className="btn-primary">Sign in</Link>}
+        />
       </div>
     );
   }
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="container-app grid min-h-[50vh] place-items-center text-center">
-        <div>
-          <p className="text-5xl">🛒</p>
-          <h1 className="mt-4 text-2xl font-bold">Your cart is empty</h1>
-          <Link to="/products" className="btn-primary mt-6 inline-flex">
-            Start shopping
-          </Link>
-        </div>
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="🛒"
+          title="Your cart is empty"
+          message="Add fresh groceries and daily essentials to get started."
+          action={<Link to="/products" className="btn-primary">Start shopping</Link>}
+        />
       </div>
     );
   }
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-extrabold">Your cart</h1>
+      <Seo title="Your Cart" noindex />
+      <PageHeader title="Your cart" subtitle={`${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`} />
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
         {/* Items */}

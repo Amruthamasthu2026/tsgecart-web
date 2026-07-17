@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { wishlistApi } from '../../features/wishlist/wishlist.api';
 import { ProductCard } from '../../components/product/ProductCard';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Seo } from '../../components/Seo';
 
 export function WishlistPage() {
   const queryClient = useQueryClient();
@@ -17,7 +20,8 @@ export function WishlistPage() {
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-extrabold">Your wishlist</h1>
+      <Seo title="Your Wishlist" noindex />
+      <PageHeader title="Your wishlist" subtitle={products.length ? `${products.length} saved item${products.length === 1 ? '' : 's'}` : undefined} />
 
       {isLoading ? (
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -26,20 +30,19 @@ export function WishlistPage() {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="mt-10 text-center">
-          <p className="text-5xl">💛</p>
-          <p className="mt-4 text-ink-muted">Your wishlist is empty.</p>
-          <Link to="/products" className="btn-primary mt-6 inline-flex">
-            Discover products
-          </Link>
-        </div>
+        <EmptyState
+          emoji="💛"
+          title="Your wishlist is empty"
+          message="Tap the heart on any product to save it here for later."
+          action={<Link to="/products" className="btn-primary">Discover products</Link>}
+        />
       ) : (
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((p) => (
             <div key={p.id} className="relative">
               <button
                 onClick={() => removeMutation.mutate(p.id)}
-                className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-sm shadow-card"
+                className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-white text-sm text-ink-muted shadow-soft transition hover:text-badge-trending"
                 aria-label="Remove from wishlist"
               >
                 ✕

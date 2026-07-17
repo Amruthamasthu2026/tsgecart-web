@@ -7,6 +7,9 @@ import { ordersApi } from '../../features/orders/orders.api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { Button } from '../../components/ui/Button';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Seo } from '../../components/Seo';
 import { formatCurrency } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
 import { loadRazorpay, openRazorpayCheckout } from '../../lib/razorpay';
@@ -106,20 +109,21 @@ export function CheckoutPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="container-app grid min-h-[50vh] place-items-center text-center">
-        <div>
-          <h1 className="text-2xl font-bold">Your cart is empty</h1>
-          <Link to="/products" className="btn-primary mt-6 inline-flex">
-            Shop now
-          </Link>
-        </div>
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="🛒"
+          title="Your cart is empty"
+          message="Add items to your cart before checking out."
+          action={<Link to="/products" className="btn-primary">Shop now</Link>}
+        />
       </div>
     );
   }
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-extrabold">Checkout</h1>
+      <Seo title="Checkout" noindex />
+      <PageHeader title="Checkout" subtitle="Confirm your address and payment method" />
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">

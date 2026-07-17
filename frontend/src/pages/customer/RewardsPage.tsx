@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, useAnimation } from 'framer-motion';
 import { rewardsApi, type SpinResult } from '../../features/rewards/rewards.api';
 import { Button } from '../../components/ui/Button';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Seo } from '../../components/Seo';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
 
@@ -55,7 +57,8 @@ export function RewardsPage() {
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-extrabold">Rewards</h1>
+      <Seo title="Rewards & Referrals" noindex />
+      <PageHeader title="Rewards" subtitle="Earn with the spin wheel, referrals and your wallet" />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Wallet */}

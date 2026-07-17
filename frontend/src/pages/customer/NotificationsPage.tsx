@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../../features/notifications/notifications.api';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Seo } from '../../components/Seo';
 import { formatDate } from '../../lib/format';
 
 export function NotificationsPage() {
@@ -21,8 +23,9 @@ export function NotificationsPage() {
 
   return (
     <div className="container-app py-8">
+      <Seo title="Notifications" noindex />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold">Notifications</h1>
+        <h1 className="text-2xl font-extrabold text-ink">Notifications</h1>
         {(data?.unread ?? 0) > 0 && (
           <button
             onClick={() => markAll.mutate()}
@@ -40,7 +43,7 @@ export function NotificationsPage() {
           ))}
         </div>
       ) : !data || data.notifications.length === 0 ? (
-        <p className="mt-10 text-center text-ink-muted">You have no notifications.</p>
+        <EmptyState emoji="🔔" title="No notifications yet" message="Order updates and offers will appear here." />
       ) : (
         <div className="mt-6 space-y-2">
           {data.notifications.map((n) => {
