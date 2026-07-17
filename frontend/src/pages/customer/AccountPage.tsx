@@ -111,6 +111,23 @@ export function AccountPage() {
         </Button>
       </div>
 
+      {/* Admin entry — only for staff/admin roles */}
+      {(user?.role === 'ADMIN' || user?.role === 'STAFF') && (
+        <Link
+          to="/admin"
+          className="mt-4 flex items-center justify-between rounded-3xl bg-ink p-5 text-white shadow-card transition hover:bg-ink-soft"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand text-xl">🛠️</span>
+            <div>
+              <p className="font-bold">Admin Dashboard</p>
+              <p className="text-sm text-white/60">Manage orders, products, customers and more</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-brand px-4 py-2 text-sm font-bold text-ink">Open</span>
+        </Link>
+      )}
+
       {/* Quick links */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {QUICK_LINKS.map((l) => (

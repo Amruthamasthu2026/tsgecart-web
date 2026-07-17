@@ -85,6 +85,12 @@ export function Navbar() {
             )}
           </Link>
 
+          {isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'STAFF') && (
+            <Link to="/admin" className="btn-dark hidden px-4 py-2.5 text-xs lg:inline-flex">
+              Admin
+            </Link>
+          )}
+
           <Link
             to={isAuthenticated ? '/account' : '/login'}
             className="icon-btn"
