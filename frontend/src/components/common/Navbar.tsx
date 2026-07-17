@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 
 export function Navbar() {
   const { isAuthenticated, user } = useAuth();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
@@ -47,8 +49,13 @@ export function Navbar() {
               Sign in
             </Link>
           )}
-          <Link to="/cart" className="btn-primary">
+          <Link to="/cart" className="btn-primary relative">
             Cart
+            {itemCount > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-ink px-1 text-xs font-bold text-brand">
+                {itemCount}
+              </span>
+            )}
           </Link>
         </nav>
       </div>

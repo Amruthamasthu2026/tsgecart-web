@@ -2,13 +2,14 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { Product } from '../../features/catalog/catalog.types';
 import { formatCurrency, discountPercent } from '../../lib/format';
+import { useAddToCart } from '../../features/cart/useAddToCart';
 
 interface ProductCardProps {
   product: Product;
-  onAdd?: (product: Product) => void;
 }
 
-export function ProductCard({ product, onAdd }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
+  const { add, pendingId } = useAddToCart();
   const variant = product.variants.find((v) => v.isDefault) ?? product.variants[0];
   const discount = variant ? discountPercent(variant.mrp, variant.price) : 0;
   const outOfStock = variant?.inventory ? variant.inventory.stock <= 0 : false;
@@ -59,22 +60,13 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
               </>
             )}
           </div>
-          {onAdd ? (
-            <button
-              onClick={() => onAdd(product)}
-              disabled={outOfStock}
-              className="rounded-full border border-brand-500 bg-brand px-3 py-1 text-xs font-bold text-ink transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {outOfStock ? 'Out' : 'Add'}
-            </button>
-          ) : (
-            <Link
-              to={`/products/${product.slug}`}
-              className="rounded-full border border-brand-500 bg-brand px-3 py-1 text-xs font-bold text-ink transition hover:bg-brand-600"
-            >
-              View
-            </Link>
-          )}
+          <button
+            onClick={() => variant && add(variant.id)}
+            disabled={outOfStock || !variant || pendingId === variant?.id}
+            className="rounded-full border border-brand-500 bg-brand px-3 py-1 text-xs font-bold text-ink transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {outOfStock ? 'Out' : pendingId === variant?.id ? '…' : 'Add'}
+          </button>
         </div>
       </div>
     </motion.div>

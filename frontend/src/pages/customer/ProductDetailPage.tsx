@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
 import { formatCurrency, discountPercent, formatDate } from '../../lib/format';
 import { Button } from '../../components/ui/Button';
+import { useAddToCart } from '../../features/cart/useAddToCart';
 
 export function ProductDetailPage() {
   const { slug = '' } = useParams();
@@ -12,6 +13,7 @@ export function ProductDetailPage() {
     queryFn: () => catalogApi.getProduct(slug),
   });
 
+  const { add, pendingId, error: addError } = useAddToCart();
   const [variantId, setVariantId] = useState<string | null>(null);
 
   if (isLoading) {
@@ -129,11 +131,18 @@ export function ProductDetailPage() {
           )}
 
           <div className="mt-6 flex items-center gap-3">
-            <Button disabled={stock <= 0}>{stock > 0 ? 'Add to cart' : 'Out of stock'}</Button>
+            <Button
+              disabled={stock <= 0 || !selected}
+              isLoading={!!selected && pendingId === selected.id}
+              onClick={() => selected && add(selected.id)}
+            >
+              {stock > 0 ? 'Add to cart' : 'Out of stock'}
+            </Button>
             {stock > 0 && stock <= 10 && (
               <span className="text-sm font-medium text-red-600">Only {stock} left!</span>
             )}
           </div>
+          {addError && <p className="mt-2 text-sm text-red-600">{addError}</p>}
 
           {product.description && (
             <div className="mt-8">

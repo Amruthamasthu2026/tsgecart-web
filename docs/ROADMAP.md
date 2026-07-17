@@ -8,7 +8,7 @@ strictly on the prior phase.
 | **0 — Foundation** | Monorepo, Docker, Nginx, Prisma schema + seed, config, logging, error handling, CI, SPA shell | ✅ Done |
 | **1 — Auth & Users** | Register/login, JWT + rotating refresh tokens, email verify, forgot/reset, RBAC, addresses, profile | ✅ Done |
 | **2 — Catalog** | Categories, brands, products, variants, Cloudinary uploads, search/filter/sort, product detail, admin CRUD | ✅ Done |
-| **3 — Cart & Delivery** | Cart, wishlist, coupons, delivery zone/pincode validation + ETA/charges, admin delivery management | ⬜ Pending |
+| **3 — Cart & Delivery** | Cart, wishlist, coupons, delivery zone/pincode validation + ETA/charges, admin delivery management | ✅ Done |
 | **4 — Orders & Payments** | Order creation (COD + Razorpay), payment verify + webhook + refund, invoice, status timeline, admin orders | ⬜ Pending |
 | **5 — Engagement** | Reviews/ratings, referral, spin wheel, wallet, notifications, banners, recently viewed, recommendations | ⬜ Pending |
 | **6 — Admin & Analytics** | Dashboard, revenue/sales analytics, inventory, roles & permissions, settings | ⬜ Pending |

@@ -14,6 +14,12 @@ const ProductsPage = lazy(() =>
 const ProductDetailPage = lazy(() =>
   import('../pages/customer/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })),
 );
+const CartPage = lazy(() =>
+  import('../pages/customer/CartPage').then((m) => ({ default: m.CartPage })),
+);
+const WishlistPage = lazy(() =>
+  import('../pages/customer/WishlistPage').then((m) => ({ default: m.WishlistPage })),
+);
 const AccountPage = lazy(() =>
   import('../pages/customer/AccountPage').then((m) => ({ default: m.AccountPage })),
 );
@@ -55,9 +61,13 @@ export const router = createBrowserRouter([
       { index: true, element: wrap(<HomePage />) },
       { path: 'products', element: wrap(<ProductsPage />) },
       { path: 'products/:slug', element: wrap(<ProductDetailPage />) },
+      { path: 'cart', element: wrap(<CartPage />) },
       {
         element: <ProtectedRoute />,
-        children: [{ path: 'account', element: wrap(<AccountPage />) }],
+        children: [
+          { path: 'wishlist', element: wrap(<WishlistPage />) },
+          { path: 'account', element: wrap(<AccountPage />) },
+        ],
       },
       { path: '*', element: wrap(<NotFoundPage />) },
     ],
