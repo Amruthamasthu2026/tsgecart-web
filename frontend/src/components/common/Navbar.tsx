@@ -61,6 +61,11 @@ export function Navbar() {
                   <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
                 )}
               </Link>
+              {(user?.role === 'ADMIN' || user?.role === 'STAFF') && (
+                <Link to="/admin" className="btn-ghost hidden sm:inline-flex">
+                  Admin
+                </Link>
+              )}
               <Link to="/account" className="btn-ghost hidden sm:inline-flex">
                 {user?.name?.split(' ')[0] ?? 'Account'}
               </Link>

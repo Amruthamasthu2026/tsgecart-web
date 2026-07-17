@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
+import { AdminLayout } from '../layouts/AdminLayout';
 import { ProtectedRoute } from '../routes/ProtectedRoute';
 
 // Code-split page bundles for faster initial load.
@@ -57,6 +58,35 @@ const VerifyEmailPage = lazy(() =>
   import('../pages/auth/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })),
 );
 
+// Admin pages
+const AdminDashboard = lazy(() =>
+  import('../pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })),
+);
+const AdminOrders = lazy(() =>
+  import('../pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrders })),
+);
+const AdminProducts = lazy(() =>
+  import('../pages/admin/AdminProducts').then((m) => ({ default: m.AdminProducts })),
+);
+const AdminCategories = lazy(() =>
+  import('../pages/admin/AdminCategories').then((m) => ({ default: m.AdminCategories })),
+);
+const AdminCoupons = lazy(() =>
+  import('../pages/admin/AdminCoupons').then((m) => ({ default: m.AdminCoupons })),
+);
+const AdminCustomers = lazy(() =>
+  import('../pages/admin/AdminCustomers').then((m) => ({ default: m.AdminCustomers })),
+);
+const AdminDelivery = lazy(() =>
+  import('../pages/admin/AdminDelivery').then((m) => ({ default: m.AdminDelivery })),
+);
+const AdminReviews = lazy(() =>
+  import('../pages/admin/AdminReviews').then((m) => ({ default: m.AdminReviews })),
+);
+const AdminBanners = lazy(() =>
+  import('../pages/admin/AdminBanners').then((m) => ({ default: m.AdminBanners })),
+);
+
 function PageFallback() {
   return (
     <div className="container-app py-16">
@@ -90,6 +120,26 @@ export const router = createBrowserRouter([
         ],
       },
       { path: '*', element: wrap(<NotFoundPage />) },
+    ],
+  },
+  {
+    element: <ProtectedRoute roles={['ADMIN', 'STAFF']} />,
+    children: [
+      {
+        path: 'admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: wrap(<AdminDashboard />) },
+          { path: 'orders', element: wrap(<AdminOrders />) },
+          { path: 'products', element: wrap(<AdminProducts />) },
+          { path: 'categories', element: wrap(<AdminCategories />) },
+          { path: 'coupons', element: wrap(<AdminCoupons />) },
+          { path: 'customers', element: wrap(<AdminCustomers />) },
+          { path: 'delivery', element: wrap(<AdminDelivery />) },
+          { path: 'reviews', element: wrap(<AdminReviews />) },
+          { path: 'banners', element: wrap(<AdminBanners />) },
+        ],
+      },
     ],
   },
   {

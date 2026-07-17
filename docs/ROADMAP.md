@@ -11,7 +11,7 @@ strictly on the prior phase.
 | **3 — Cart & Delivery** | Cart, wishlist, coupons, delivery zone/pincode validation + ETA/charges, admin delivery management | ✅ Done |
 | **4 — Orders & Payments** | Order creation (COD + Razorpay), payment verify + webhook + refund, invoice, status timeline, admin orders | ✅ Done |
 | **5 — Engagement** | Reviews/ratings, referral, spin wheel, wallet, notifications, banners, recently viewed, recommendations | ✅ Done |
-| **6 — Admin & Analytics** | Dashboard, revenue/sales analytics, inventory, roles & permissions, settings | ⬜ Pending |
+| **6 — Admin & Analytics** | Dashboard, revenue/sales analytics, inventory, roles & permissions, settings | ✅ Done |
 | **7 — Hardening & SEO** | SEO (slugs, meta, schema.org, sitemap, robots), performance, QA, security pass, prod deploy | ⬜ Pending |
 
 ## Phase 0 deliverables (complete)
