@@ -37,6 +37,8 @@ export interface Product {
   ratingCount: number;
   isFeatured: boolean;
   isBestSeller: boolean;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
   category?: CategoryRef;
   brand?: BrandRef | null;
   variants: ProductVariant[];

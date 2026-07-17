@@ -1,0 +1,20 @@
+# Production override: builds and runs the full stack (MySQL, Redis, API, SPA).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d --build
+services:
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+    # Run migrations then start the server.
+    command: sh -c "npx prisma migrate deploy && node dist/server.js"
+
+  frontend:
+    restart: always
+    ports:
+      - "80:80"
+
+  mysql:
+    restart: always
+
+  redis:
+    restart: always

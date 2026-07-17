@@ -9,6 +9,7 @@ import { useAddToCart } from '../../features/cart/useAddToCart';
 import { useAuth } from '../../contexts/AuthContext';
 import { ReviewForm } from '../../components/product/ReviewForm';
 import { ProductCard } from '../../components/product/ProductCard';
+import { Seo } from '../../components/Seo';
 
 export function ProductDetailPage() {
   const { slug = '' } = useParams();
@@ -71,6 +72,37 @@ export function ProductDetailPage() {
 
   return (
     <div className="container-app py-8">
+      <Seo
+        title={product.metaTitle || product.name}
+        description={product.metaDescription || product.description || undefined}
+        image={product.images[0]}
+        type="product"
+        canonicalPath={`/products/${product.slug}`}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: product.name,
+          image: product.images,
+          description: product.description ?? undefined,
+          brand: product.brand ? { '@type': 'Brand', name: product.brand.name } : undefined,
+          aggregateRating:
+            product.ratingCount > 0
+              ? {
+                  '@type': 'AggregateRating',
+                  ratingValue: product.ratingAvg,
+                  reviewCount: product.ratingCount,
+                }
+              : undefined,
+          offers: selected
+            ? {
+                '@type': 'Offer',
+                priceCurrency: 'INR',
+                price: selected.price,
+                availability: stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+              }
+            : undefined,
+        }}
+      />
       <nav className="mb-4 text-sm text-ink-muted">
         <Link to="/" className="hover:underline">Home</Link>
         {product.category && (

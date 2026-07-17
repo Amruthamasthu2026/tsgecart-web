@@ -7,6 +7,7 @@ import { pinoHttp } from 'pino-http';
 import { corsOrigins, env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { apiRouter } from './routes/index.js';
+import { seoRouter } from './modules/seo/seo.routes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { notFound } from './middlewares/notFound.js';
 import { globalRateLimiter } from './middlewares/rateLimit.js';
@@ -45,6 +46,9 @@ export function createApp(): Express {
 
   // Rate limiting on the API surface
   app.use('/api', globalRateLimiter);
+
+  // Public SEO endpoints (served at the root, e.g. /sitemap.xml)
+  app.use('/', seoRouter);
 
   // API routes (versioned)
   app.use('/api/v1', apiRouter);

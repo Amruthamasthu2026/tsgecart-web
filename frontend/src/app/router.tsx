@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this module intentionally exports the router config alongside small render helpers */
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
@@ -41,6 +42,26 @@ const AccountPage = lazy(() =>
 );
 const NotFoundPage = lazy(() =>
   import('../pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+);
+
+// Static content pages
+const AboutPage = lazy(() =>
+  import('../pages/content/ContentPages').then((m) => ({ default: m.AboutPage })),
+);
+const ContactPage = lazy(() =>
+  import('../pages/content/ContentPages').then((m) => ({ default: m.ContactPage })),
+);
+const FaqPage = lazy(() =>
+  import('../pages/content/ContentPages').then((m) => ({ default: m.FaqPage })),
+);
+const PrivacyPage = lazy(() =>
+  import('../pages/content/ContentPages').then((m) => ({ default: m.PrivacyPage })),
+);
+const TermsPage = lazy(() =>
+  import('../pages/content/ContentPages').then((m) => ({ default: m.TermsPage })),
+);
+const RefundPage = lazy(() =>
+  import('../pages/content/ContentPages').then((m) => ({ default: m.RefundPage })),
 );
 const LoginPage = lazy(() =>
   import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
@@ -107,6 +128,12 @@ export const router = createBrowserRouter([
       { path: 'products', element: wrap(<ProductsPage />) },
       { path: 'products/:slug', element: wrap(<ProductDetailPage />) },
       { path: 'cart', element: wrap(<CartPage />) },
+      { path: 'about', element: wrap(<AboutPage />) },
+      { path: 'contact', element: wrap(<ContactPage />) },
+      { path: 'faq', element: wrap(<FaqPage />) },
+      { path: 'privacy', element: wrap(<PrivacyPage />) },
+      { path: 'terms', element: wrap(<TermsPage />) },
+      { path: 'refunds', element: wrap(<RefundPage />) },
       {
         element: <ProtectedRoute />,
         children: [

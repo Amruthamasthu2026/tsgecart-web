@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
 import { discoveryApi, bannersApi } from '../../features/discovery/discovery.api';
 import { ProductCard } from '../../components/product/ProductCard';
+import { Seo } from '../../components/Seo';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Product } from '../../features/catalog/catalog.types';
 
@@ -58,6 +59,16 @@ export function HomePage() {
 
   return (
     <div className="container-app py-8">
+      <Seo
+        title="Fresh Groceries Delivered Fast in Hyderabad"
+        canonicalPath="/"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'TSG eCart',
+          url: typeof window !== 'undefined' ? window.location.origin : '',
+        }}
+      />
       {/* Hero */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}

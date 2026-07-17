@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { catalogApi, type ProductFilters } from '../../features/catalog/catalog.api';
 import { ProductCard } from '../../components/product/ProductCard';
+import { Seo } from '../../components/Seo';
 
 const SORTS: Array<{ label: string; sort: ProductFilters['sort']; order: ProductFilters['order'] }> = [
   { label: 'Newest', sort: 'createdAt', order: 'desc' },
@@ -46,8 +47,18 @@ export function ProductsPage() {
     setParams(next);
   };
 
+  const pageTitle = search
+    ? `Search: ${search}`
+    : category
+      ? `${category.replace(/-/g, ' ')} · Groceries`
+      : 'All products';
+
   return (
     <div className="container-app py-8">
+      <Seo
+        title={pageTitle}
+        description="Browse fresh groceries, fruits, vegetables, dairy and daily essentials on TSG eCart."
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold">
           {search ? `Results for "${search}"` : category ? category.replace(/-/g, ' ') : 'All products'}
