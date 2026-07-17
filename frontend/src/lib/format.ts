@@ -1,11 +1,14 @@
 /** Formats a number or numeric string as Indian Rupees. */
 export function formatCurrency(value: number | string): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
+  const safe = Number.isFinite(num) ? num : 0;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
+    // Whole rupees show without decimals (₹200), paise amounts keep them (₹32.50)
+    minimumFractionDigits: Number.isInteger(safe) ? 0 : 2,
     maximumFractionDigits: 2,
-  }).format(Number.isFinite(num) ? num : 0);
+  }).format(safe);
 }
 
 /** Percentage discount between MRP and selling price, rounded. */

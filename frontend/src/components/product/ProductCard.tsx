@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Product } from '../../features/catalog/catalog.types';
 import { formatCurrency, discountPercent } from '../../lib/format';
 import { useAddToCart } from '../../features/cart/useAddToCart';
+import { wishlistApi } from '../../features/wishlist/wishlist.api';
+import { useAuth } from '../../contexts/AuthContext';
+import { HeartIcon, StarIcon } from '../ui/icons';
 
 interface ProductCardProps {
   product: Product;
@@ -10,48 +13,76 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { add, pendingId } = useAddToCart();
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+
   const variant = product.variants.find((v) => v.isDefault) ?? product.variants[0];
   const discount = variant ? discountPercent(variant.mrp, variant.price) : 0;
   const outOfStock = variant?.inventory ? variant.inventory.stock <= 0 : false;
   const image = product.images[0];
 
+  const wishMutation = useMutation({
+    mutationFn: () => wishlistApi.add(product.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
+  });
+
   return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="card flex flex-col overflow-hidden"
-    >
-      <Link to={`/products/${product.slug}`} className="relative block">
-        <div className="aspect-square bg-gray-50">
-          {image ? (
-            <img
-              src={image}
-              alt={product.name}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="grid h-full w-full place-items-center text-4xl text-gray-200">🛒</div>
-          )}
-        </div>
+    <div className="card card-hover group flex flex-col overflow-hidden">
+      <div className="relative">
+        <Link to={`/products/${product.slug}`} className="block">
+          <div className="aspect-square bg-gradient-to-b from-slate-50 to-white p-4">
+            {image ? (
+              <img
+                src={image}
+                alt={product.name}
+                loading="lazy"
+                className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <div className="grid h-full w-full place-items-center text-5xl text-slate-200">🛒</div>
+            )}
+          </div>
+        </Link>
+
+        {/* Wishlist */}
+        <button
+          onClick={() => isAuthenticated && wishMutation.mutate()}
+          className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white text-ink-muted shadow-soft transition hover:text-badge-trending"
+          aria-label="Add to wishlist"
+        >
+          <HeartIcon width={18} height={18} />
+        </button>
+
+        {/* Discount badge */}
         {discount > 0 && (
-          <span className="absolute left-2 top-2 rounded-full bg-ink px-2 py-0.5 text-xs font-bold text-brand">
-            {discount}% OFF
+          <span className="absolute right-3 top-3 rounded-lg bg-badge-trending px-2 py-1 text-xs font-bold text-white shadow-sm">
+            -{discount}%
           </span>
         )}
-      </Link>
+      </div>
 
-      <div className="flex flex-1 flex-col p-3">
-        <Link to={`/products/${product.slug}`} className="line-clamp-2 text-sm font-semibold">
+      <div className="flex flex-1 flex-col p-4">
+        <Link
+          to={`/products/${product.slug}`}
+          className="line-clamp-2 text-sm font-semibold text-ink hover:text-ink-soft"
+        >
           {product.name}
         </Link>
         {variant && <p className="mt-0.5 text-xs text-ink-muted">{variant.unitLabel}</p>}
 
+        {product.ratingCount > 0 && (
+          <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-md bg-badge-organic px-1.5 py-0.5 text-xs font-bold text-white">
+            {Number(product.ratingAvg).toFixed(1)} <StarIcon width={11} height={11} />
+          </span>
+        )}
+
         <div className="mt-auto flex items-end justify-between pt-3">
-          <div>
+          <div className="leading-tight">
             {variant && (
               <>
-                <span className="text-sm font-bold">{formatCurrency(variant.price)}</span>
+                <span className="text-base font-extrabold text-ink">
+                  {formatCurrency(variant.price)}
+                </span>
                 {discount > 0 && (
                   <span className="ml-1 text-xs text-ink-muted line-through">
                     {formatCurrency(variant.mrp)}
@@ -63,12 +94,12 @@ export function ProductCard({ product }: ProductCardProps) {
           <button
             onClick={() => variant && add(variant.id)}
             disabled={outOfStock || !variant || pendingId === variant?.id}
-            className="rounded-full border border-brand-500 bg-brand px-3 py-1 text-xs font-bold text-ink transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full bg-brand px-4 py-1.5 text-xs font-bold text-ink transition hover:bg-brand-400 hover:shadow-blob disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           >
-            {outOfStock ? 'Out' : pendingId === variant?.id ? '…' : 'Add'}
+            {outOfStock ? 'Out' : pendingId === variant?.id ? '···' : 'ADD'}
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
