@@ -88,6 +88,12 @@ export function AccountPage() {
         <Link to="/wishlist" className="btn-ghost">
           Wishlist
         </Link>
+        <Link to="/rewards" className="btn-ghost">
+          Rewards
+        </Link>
+        <Link to="/notifications" className="btn-ghost">
+          Notifications
+        </Link>
       </div>
 
       {!user?.emailVerified && (

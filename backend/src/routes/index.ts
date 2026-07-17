@@ -16,6 +16,12 @@ import { couponsRouter } from '../modules/coupons/coupons.routes.js';
 import { ordersRouter } from '../modules/orders/orders.routes.js';
 import { adminOrdersRouter } from '../modules/orders/adminOrders.routes.js';
 import { paymentsRouter } from '../modules/payments/payments.routes.js';
+import { reviewsRouter } from '../modules/reviews/reviews.routes.js';
+import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
+import { rewardsRouter } from '../modules/rewards/rewards.routes.js';
+import { spinRouter } from '../modules/spin/spin.routes.js';
+import { bannersRouter } from '../modules/banners/banners.routes.js';
+import { discoveryRouter } from '../modules/discovery/discovery.routes.js';
 
 /**
  * Root API router. Feature module routers are mounted here as each phase
@@ -55,3 +61,9 @@ apiRouter.use('/coupons', couponsRouter);
 apiRouter.use('/orders', ordersRouter);
 apiRouter.use('/admin/orders', adminOrdersRouter);
 apiRouter.use('/payments', paymentsRouter);
+apiRouter.use('/reviews', reviewsRouter);
+apiRouter.use('/notifications', notificationsRouter);
+apiRouter.use('/rewards', rewardsRouter);
+apiRouter.use('/spin', spinRouter);
+apiRouter.use('/banners', bannersRouter);
+apiRouter.use('/discovery', discoveryRouter);

@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
+import { discoveryApi } from '../../features/discovery/discovery.api';
 import { formatCurrency, discountPercent, formatDate } from '../../lib/format';
 import { Button } from '../../components/ui/Button';
 import { useAddToCart } from '../../features/cart/useAddToCart';
+import { useAuth } from '../../contexts/AuthContext';
+import { ReviewForm } from '../../components/product/ReviewForm';
+import { ProductCard } from '../../components/product/ProductCard';
 
 export function ProductDetailPage() {
   const { slug = '' } = useParams();
@@ -14,7 +18,21 @@ export function ProductDetailPage() {
   });
 
   const { add, pendingId, error: addError } = useAddToCart();
+  const { isAuthenticated } = useAuth();
   const [variantId, setVariantId] = useState<string | null>(null);
+
+  const { data: related = [] } = useQuery({
+    queryKey: ['related', slug],
+    queryFn: () => discoveryApi.related(slug),
+    enabled: !!slug,
+  });
+
+  // Record the view for recommendations (best-effort, authenticated only).
+  useEffect(() => {
+    if (isAuthenticated && product?.id) {
+      discoveryApi.trackView(product.id).catch(() => undefined);
+    }
+  }, [isAuthenticated, product?.id]);
 
   if (isLoading) {
     return (
@@ -154,20 +172,37 @@ export function ProductDetailPage() {
       </div>
 
       {/* Reviews */}
-      {product.reviews.length > 0 && (
-        <section className="mt-12">
+      <section className="mt-12 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div>
           <h2 className="mb-4 text-xl font-bold">Customer reviews</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {product.reviews.map((r) => (
-              <div key={r.id} className="card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{r.user.name}</span>
-                  <span className="text-sm">{'⭐'.repeat(r.rating)}</span>
+          {product.reviews.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {product.reviews.map((r) => (
+                <div key={r.id} className="card p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">{r.user.name}</span>
+                    <span className="text-sm">{'⭐'.repeat(r.rating)}</span>
+                  </div>
+                  {r.title && <p className="mt-1 font-medium">{r.title}</p>}
+                  {r.comment && <p className="mt-1 text-sm text-ink-muted">{r.comment}</p>}
+                  <p className="mt-2 text-xs text-ink-muted">{formatDate(r.createdAt)}</p>
                 </div>
-                {r.title && <p className="mt-1 font-medium">{r.title}</p>}
-                {r.comment && <p className="mt-1 text-sm text-ink-muted">{r.comment}</p>}
-                <p className="mt-2 text-xs text-ink-muted">{formatDate(r.createdAt)}</p>
-              </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted">No reviews yet. Be the first to review!</p>
+          )}
+        </div>
+        <ReviewForm productId={product.id} slug={product.slug} />
+      </section>
+
+      {/* Related products */}
+      {related.length > 0 && (
+        <section className="mt-12">
+          <h2 className="mb-4 text-xl font-bold">You might also like</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {related.slice(0, 5).map((p) => (
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </section>

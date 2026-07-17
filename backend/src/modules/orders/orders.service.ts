@@ -3,6 +3,9 @@ import { prisma } from '../../config/prisma.js';
 import { cartService } from '../cart/cart.service.js';
 import { couponsService } from '../coupons/coupons.service.js';
 import { deliveryService } from '../delivery/delivery.service.js';
+import { walletService } from '../wallet/wallet.service.js';
+import { notificationsService } from '../notifications/notifications.service.js';
+import { referralService } from '../referral/referral.service.js';
 import { razorpay, isRazorpayConfigured } from '../../config/razorpay.js';
 import { generateOrderNumber } from '../../shared/tokens.js';
 import { buildPaginationMeta } from '../../shared/apiResponse.js';
@@ -58,7 +61,17 @@ export const ordersService = {
       couponId = evaluation.couponId;
     }
     const deliveryCharge = deliveryService.computeDeliveryCharge(service.zone, cart.subtotal);
-    const total = round(Math.max(0, cart.subtotal - discount) + deliveryCharge);
+    const grandTotal = round(Math.max(0, cart.subtotal - discount) + deliveryCharge);
+
+    // Optional wallet redemption reduces the amount payable.
+    let walletUsed = 0;
+    if (input.useWallet) {
+      const balance = await walletService.getBalance(userId);
+      walletUsed = round(Math.min(balance, grandTotal));
+    }
+    const payable = round(grandTotal - walletUsed);
+    // If wallet covers the whole bill, the order is prepaid regardless of method.
+    const fullyPaidByWallet = payable <= 0;
     const orderNumber = generateOrderNumber();
 
     // Persist everything atomically: order, items, inventory, redemption, cart clear.
@@ -77,12 +90,13 @@ export const ordersService = {
           shipCity: address.city,
           shipState: address.state,
           status: 'CONFIRMED',
-          paymentStatus: 'PENDING',
+          paymentStatus: fullyPaidByWallet ? 'PAID' : 'PENDING',
           subtotal: cart.subtotal,
           discount,
           taxTotal: cart.taxTotal,
           deliveryCharge,
-          total,
+          walletUsed,
+          total: payable,
           couponId,
           deliveryZoneId: service.zone!.id,
           etaMinMinutes: service.zone!.minEtaMinutes,
@@ -106,14 +120,24 @@ export const ordersService = {
           payment: {
             create: {
               method: input.paymentMethod,
-              status: 'PENDING',
-              amount: total,
+              status: fullyPaidByWallet ? 'PAID' : 'PENDING',
+              amount: payable,
               currency: 'INR',
+              paidAt: fullyPaidByWallet ? new Date() : null,
             },
           },
         },
         include: { items: true, payment: true },
       });
+
+      // Debit the wallet within the same transaction.
+      if (walletUsed > 0) {
+        await walletService.adjust(userId, -walletUsed, 'ORDER_REDEMPTION', {
+          reference: created.id,
+          note: `Applied to order ${orderNumber}`,
+          tx,
+        });
+      }
 
       // Decrement stock for each variant.
       for (const line of cart.items) {
@@ -138,13 +162,23 @@ export const ordersService = {
       return created;
     });
 
-    // For online payment, create a Razorpay order and attach its id.
-    if (input.paymentMethod === 'RAZORPAY') {
+    await notificationsService
+      .create(
+        userId,
+        'ORDER',
+        'Order confirmed',
+        `Your order ${orderNumber} has been placed successfully.`,
+        `/orders/${order.id}`,
+      )
+      .catch(() => undefined);
+
+    // For online payment (with a non-zero payable), create a Razorpay order.
+    if (input.paymentMethod === 'RAZORPAY' && !fullyPaidByWallet) {
       if (!isRazorpayConfigured) {
         throw new BadRequestError('Online payment is not available right now. Please use Cash on Delivery.');
       }
       const rzpOrder = await razorpay.orders.create({
-        amount: Math.round(total * 100), // paise
+        amount: Math.round(payable * 100), // paise
         currency: 'INR',
         receipt: orderNumber,
         notes: { orderId: order.id },
@@ -274,6 +308,8 @@ export const ordersService = {
           data: { status: 'PAID', paidAt: new Date() },
         });
       }
+      // Reward a pending referral on the referee's first delivered order.
+      await referralService.completeForReferee(order.userId).catch(() => undefined);
     }
     if (status === 'CANCELLED') {
       data.cancelledAt = new Date();
@@ -288,6 +324,15 @@ export const ordersService = {
       }
     }
     await prisma.order.update({ where: { id }, data });
+    await notificationsService
+      .create(
+        order.userId,
+        'ORDER',
+        `Order ${status.replace(/_/g, ' ').toLowerCase()}`,
+        `Your order ${order.orderNumber} is now ${status.replace(/_/g, ' ').toLowerCase()}.`,
+        `/orders/${id}`,
+      )
+      .catch(() => undefined);
     logger.info({ orderId: id, status }, 'Order status updated');
     return prisma.order.findUniqueOrThrow({
       where: { id },

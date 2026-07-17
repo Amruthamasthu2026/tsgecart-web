@@ -29,6 +29,12 @@ const OrdersPage = lazy(() =>
 const OrderDetailPage = lazy(() =>
   import('../pages/customer/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })),
 );
+const RewardsPage = lazy(() =>
+  import('../pages/customer/RewardsPage').then((m) => ({ default: m.RewardsPage })),
+);
+const NotificationsPage = lazy(() =>
+  import('../pages/customer/NotificationsPage').then((m) => ({ default: m.NotificationsPage })),
+);
 const AccountPage = lazy(() =>
   import('../pages/customer/AccountPage').then((m) => ({ default: m.AccountPage })),
 );
@@ -78,6 +84,8 @@ export const router = createBrowserRouter([
           { path: 'orders', element: wrap(<OrdersPage />) },
           { path: 'orders/:id', element: wrap(<OrderDetailPage />) },
           { path: 'wishlist', element: wrap(<WishlistPage />) },
+          { path: 'rewards', element: wrap(<RewardsPage />) },
+          { path: 'notifications', element: wrap(<NotificationsPage />) },
           { path: 'account', element: wrap(<AccountPage />) },
         ],
       },

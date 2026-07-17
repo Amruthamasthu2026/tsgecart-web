@@ -1,13 +1,22 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
+import { notificationsApi } from '../../features/notifications/notifications.api';
 
 export function Navbar() {
   const { isAuthenticated, user } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+
+  const { data: notif } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: notificationsApi.list,
+    enabled: isAuthenticated,
+    refetchInterval: 60_000,
+  });
 
   const onSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -41,9 +50,21 @@ export function Navbar() {
 
         <nav className="flex items-center gap-2">
           {isAuthenticated ? (
-            <Link to="/account" className="btn-ghost hidden sm:inline-flex">
-              {user?.name?.split(' ')[0] ?? 'Account'}
-            </Link>
+            <>
+              <Link
+                to="/notifications"
+                className="relative hidden h-10 w-10 place-items-center rounded-full hover:bg-brand-50 sm:grid"
+                aria-label="Notifications"
+              >
+                <span className="text-lg">🔔</span>
+                {(notif?.unread ?? 0) > 0 && (
+                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+                )}
+              </Link>
+              <Link to="/account" className="btn-ghost hidden sm:inline-flex">
+                {user?.name?.split(' ')[0] ?? 'Account'}
+              </Link>
+            </>
           ) : (
             <Link to="/login" className="btn-ghost hidden sm:inline-flex">
               Sign in

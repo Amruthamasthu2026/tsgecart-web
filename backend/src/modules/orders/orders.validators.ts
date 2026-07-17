@@ -4,6 +4,7 @@ export const createOrderSchema = z.object({
   addressId: z.string().cuid(),
   paymentMethod: z.enum(['COD', 'RAZORPAY']),
   couponCode: z.string().trim().min(1).max(40).optional(),
+  useWallet: z.boolean().default(false),
 });
 
 export const verifyPaymentSchema = z.object({

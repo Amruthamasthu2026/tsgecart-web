@@ -2,7 +2,10 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
+import { discoveryApi, bannersApi } from '../../features/discovery/discovery.api';
 import { ProductCard } from '../../components/product/ProductCard';
+import { useAuth } from '../../contexts/AuthContext';
+import type { Product } from '../../features/catalog/catalog.types';
 
 const ETAS = [
   { label: '10–20 min', desc: 'Nearby essentials' },
@@ -10,7 +13,23 @@ const ETAS = [
   { label: '30–45 min', desc: 'Bulk & fresh produce' },
 ];
 
+function ProductRow({ title, products }: { title: string; products: Product[] }) {
+  if (products.length === 0) return null;
+  return (
+    <section className="mt-12">
+      <h2 className="mb-4 text-xl font-bold">{title}</h2>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {products.slice(0, 10).map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function HomePage() {
+  const { isAuthenticated } = useAuth();
+
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => catalogApi.listCategories(),
@@ -19,6 +38,22 @@ export function HomePage() {
   const { data: featured } = useQuery({
     queryKey: ['products', 'featured'],
     queryFn: () => catalogApi.listProducts({ featured: true, limit: 12 }),
+  });
+
+  const { data: banners = [] } = useQuery({
+    queryKey: ['banners', 'HOME_HERO'],
+    queryFn: () => bannersApi.list('HOME_HERO'),
+  });
+
+  const { data: recommendations = [] } = useQuery({
+    queryKey: ['recommendations'],
+    queryFn: () => discoveryApi.recommendations(),
+  });
+
+  const { data: recentlyViewed = [] } = useQuery({
+    queryKey: ['recently-viewed'],
+    queryFn: () => discoveryApi.recentlyViewed(),
+    enabled: isAuthenticated,
   });
 
   return (
@@ -84,17 +119,37 @@ export function HomePage() {
         </section>
       )}
 
-      {/* Featured products */}
-      {featured && featured.products.length > 0 && (
-        <section className="mt-12">
-          <h2 className="mb-4 text-xl font-bold">Featured today</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {featured.products.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+      {/* Promotional banners */}
+      {banners.length > 0 && (
+        <section className="mt-8 grid gap-4 sm:grid-cols-2">
+          {banners.slice(0, 2).map((b) => {
+            const img = (
+              <img
+                src={b.imageUrl}
+                alt={b.title ?? 'Offer'}
+                className="h-40 w-full rounded-2xl object-cover"
+                loading="lazy"
+              />
+            );
+            return b.linkUrl ? (
+              <a key={b.id} href={b.linkUrl}>
+                {img}
+              </a>
+            ) : (
+              <div key={b.id}>{img}</div>
+            );
+          })}
         </section>
       )}
+
+      {/* Featured products */}
+      <ProductRow title="Featured today" products={featured?.products ?? []} />
+
+      {/* Recently viewed */}
+      <ProductRow title="Recently viewed" products={recentlyViewed} />
+
+      {/* Recommendations */}
+      <ProductRow title="Recommended for you" products={recommendations} />
     </div>
   );
 }
