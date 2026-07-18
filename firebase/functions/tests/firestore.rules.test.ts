@@ -41,9 +41,14 @@ const HELPER_RULES = `
       function callerRole() { return isSignedIn() ? request.auth.token.get('role', null) : null; }
       function isAdmin() { return isSignedIn() && callerRole() == 'ADMIN'; }
       function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+      function isDeliveryPartner() { return isSignedIn() && callerRole() == 'DELIVERY_PARTNER'; }
 
       match /_rulesTestScratch/{docId} {
         allow read: if isAdmin() || isOwner(resource.data.userId);
+        allow write: if isAdmin();
+      }
+      match /_rulesTestDeliveryScratch/{docId} {
+        allow read: if isAdmin() || isDeliveryPartner();
         allow write: if isAdmin();
       }
       match /{document=**} {
@@ -181,6 +186,36 @@ describe('firestore.rules helper functions (isAdmin/isOwner) against real custom
     await assertSucceeds(withoutClaim.firestore().doc('_rulesTestScratch/doc3').get());
     // A different uid succeeds only because it carries the real ADMIN claim.
     await assertSucceeds(withRealClaim.firestore().doc('_rulesTestScratch/doc3').get());
+  });
+});
+
+describe('firestore.rules helper function (isDeliveryPartner) against real custom claims', () => {
+  beforeEach(async () => {
+    await helperEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('_rulesTestDeliveryScratch/doc1').set({ note: 'route-42' });
+    });
+  });
+
+  it('grants read to a caller with the real DELIVERY_PARTNER claim', () => {
+    const partner = helperEnv.authenticatedContext('partner-1', { role: 'DELIVERY_PARTNER' });
+    return assertSucceeds(partner.firestore().doc('_rulesTestDeliveryScratch/doc1').get());
+  });
+
+  it('denies read to a signed-in CUSTOMER (no DELIVERY_PARTNER claim)', () => {
+    const customer = helperEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    return assertFails(customer.firestore().doc('_rulesTestDeliveryScratch/doc1').get());
+  });
+
+  it('denies read to an authenticated user with no role claim at all', () => {
+    const stranger = helperEnv.authenticatedContext('stranger-1');
+    return assertFails(stranger.firestore().doc('_rulesTestDeliveryScratch/doc1').get());
+  });
+
+  it('denies write even to a genuine DELIVERY_PARTNER (admin-only write in this scratch collection)', () => {
+    const partner = helperEnv.authenticatedContext('partner-1', { role: 'DELIVERY_PARTNER' });
+    return assertFails(
+      partner.firestore().doc('_rulesTestDeliveryScratch/doc1').set({ note: 'hacked' }),
+    );
   });
 });
 

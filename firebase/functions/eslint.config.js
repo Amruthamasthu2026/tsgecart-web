@@ -7,7 +7,7 @@ module.exports = [
     ignores: ['lib/**', 'node_modules/**', 'coverage/**'],
   },
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    files: ['src/**/*.ts', 'tests/**/*.ts', 'scripts/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

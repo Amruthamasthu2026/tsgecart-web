@@ -1,4 +1,4 @@
-import type { ZodSchema } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import { ZodError } from 'zod';
 import { ValidationError } from './errors';
 
@@ -10,7 +10,7 @@ import { ValidationError } from './errors';
  * this explicitly as its first line — the analogous guarantee to the
  * backend's route-level `validate({ body })`.
  */
-export function parseInput<T>(schema: ZodSchema<T>, data: unknown): T {
+export function parseInput<T>(schema: ZodType<T, ZodTypeDef, unknown>, data: unknown): T {
   try {
     return schema.parse(data);
   } catch (err) {

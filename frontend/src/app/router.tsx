@@ -5,6 +5,7 @@ import { MainLayout } from '../layouts/MainLayout';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { AdminLayout } from '../layouts/AdminLayout';
 import { ProtectedRoute } from '../routes/ProtectedRoute';
+import { FirebaseProtectedRoute } from '../routes/FirebaseProtectedRoute';
 
 // Code-split page bundles for faster initial load.
 const HomePage = lazy(() =>
@@ -82,6 +83,34 @@ const VerifyEmailPage = lazy(() =>
   import('../pages/auth/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })),
 );
 
+// Firebase Authentication demo pages — added alongside the JWT-based pages
+// above during the Firebase migration. None of the routes above are
+// modified or removed.
+const FirebaseLoginPage = lazy(() =>
+  import('../pages/firebaseAuth/FirebaseLoginPage').then((m) => ({ default: m.FirebaseLoginPage })),
+);
+const FirebaseRegisterPage = lazy(() =>
+  import('../pages/firebaseAuth/FirebaseRegisterPage').then((m) => ({ default: m.FirebaseRegisterPage })),
+);
+const FirebaseForgotPasswordPage = lazy(() =>
+  import('../pages/firebaseAuth/FirebaseForgotPasswordPage').then((m) => ({
+    default: m.FirebaseForgotPasswordPage,
+  })),
+);
+const FirebaseResetPasswordPage = lazy(() =>
+  import('../pages/firebaseAuth/FirebaseResetPasswordPage').then((m) => ({
+    default: m.FirebaseResetPasswordPage,
+  })),
+);
+const FirebaseVerifyEmailPage = lazy(() =>
+  import('../pages/firebaseAuth/FirebaseVerifyEmailPage').then((m) => ({
+    default: m.FirebaseVerifyEmailPage,
+  })),
+);
+const FirebaseAccountPage = lazy(() =>
+  import('../pages/firebaseAuth/FirebaseAccountPage').then((m) => ({ default: m.FirebaseAccountPage })),
+);
+
 // Admin pages
 const AdminDashboard = lazy(() =>
   import('../pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })),
@@ -153,6 +182,12 @@ export const router = createBrowserRouter([
           { path: 'account', element: wrap(<AccountPage />) },
         ],
       },
+      {
+        // Firebase-Auth-guarded routes — independent from the ProtectedRoute
+        // block above, gated by FirebaseAuthContext instead of AuthContext.
+        element: <FirebaseProtectedRoute />,
+        children: [{ path: 'firebase-auth/account', element: wrap(<FirebaseAccountPage />) }],
+      },
       { path: '*', element: wrap(<NotFoundPage />) },
     ],
   },
@@ -185,6 +220,11 @@ export const router = createBrowserRouter([
       { path: 'forgot-password', element: wrap(<ForgotPasswordPage />) },
       { path: 'reset-password', element: wrap(<ResetPasswordPage />) },
       { path: 'verify-email', element: wrap(<VerifyEmailPage />) },
+      { path: 'firebase-auth/login', element: wrap(<FirebaseLoginPage />) },
+      { path: 'firebase-auth/register', element: wrap(<FirebaseRegisterPage />) },
+      { path: 'firebase-auth/forgot-password', element: wrap(<FirebaseForgotPasswordPage />) },
+      { path: 'firebase-auth/reset-password', element: wrap(<FirebaseResetPasswordPage />) },
+      { path: 'firebase-auth/verify-email', element: wrap(<FirebaseVerifyEmailPage />) },
     ],
   },
 ]);

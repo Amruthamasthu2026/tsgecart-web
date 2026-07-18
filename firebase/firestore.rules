@@ -55,6 +55,10 @@ service cloud.firestore {
       return isAdmin() || isStaff();
     }
 
+    function isDeliveryPartner() {
+      return isSignedIn() && callerRole() == 'DELIVERY_PARTNER';
+    }
+
     // ADMIN implicitly holds every permission (mirrors the backend's
     // requirePermission() behavior — see audit §7).
     function hasPermission(key) {

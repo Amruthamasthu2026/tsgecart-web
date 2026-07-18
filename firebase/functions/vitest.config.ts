@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    exclude: ['**/node_modules/**', 'tests/firestore.rules.test.ts'],
+    exclude: ['**/node_modules/**', 'tests/firestore.rules.test.ts', 'tests/emulator/**'],
     globals: true,
   },
 });

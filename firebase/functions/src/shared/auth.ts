@@ -15,7 +15,7 @@ import { UnauthorizedError, ForbiddenError } from './errors';
  * field, and never an email comparison.
  */
 
-export type Role = 'CUSTOMER' | 'STAFF' | 'ADMIN';
+export type Role = 'CUSTOMER' | 'STAFF' | 'ADMIN' | 'DELIVERY_PARTNER';
 
 export interface AuthenticatedCaller {
   uid: string;

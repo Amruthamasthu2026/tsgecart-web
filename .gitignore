@@ -58,3 +58,8 @@ pubsub-debug.log
 *-debug.log
 .firebase/
 
+# Firebase migration — user-export artifacts (contain password hashes; the
+# scripts that produce/consume them are NOT executed as part of this repo's
+# automated tooling, but their output directory must never be committed)
+backend/scripts/output/
+
