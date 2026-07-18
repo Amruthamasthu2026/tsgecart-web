@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
 import { discoveryApi } from '../../features/discovery/discovery.api';
+import { firebaseProductsApi, useFirestoreProducts, toLegacyProductDetail } from '../../services/firebaseProducts';
 import { formatCurrency, discountPercent, formatDate } from '../../lib/format';
 import { Button } from '../../components/ui/Button';
 import { useAddToCart } from '../../features/cart/useAddToCart';
@@ -14,8 +15,11 @@ import { Seo } from '../../components/Seo';
 export function ProductDetailPage() {
   const { slug = '' } = useParams();
   const { data: product, isLoading, isError } = useQuery({
-    queryKey: ['product', slug],
-    queryFn: () => catalogApi.getProduct(slug),
+    queryKey: ['product', slug, useFirestoreProducts],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? toLegacyProductDetail(await firebaseProductsApi.getProduct(slug))
+        : catalogApi.getProduct(slug),
   });
 
   const { add, pendingId, error: addError } = useAddToCart();
@@ -182,16 +186,22 @@ export function ProductDetailPage() {
 
           <div className="mt-6 flex items-center gap-3">
             <Button
-              disabled={stock <= 0 || !selected}
+              disabled={stock <= 0 || !selected || useFirestoreProducts}
               isLoading={!!selected && pendingId === selected.id}
               onClick={() => selected && add(selected.id)}
             >
-              {stock > 0 ? 'Add to cart' : 'Out of stock'}
+              {useFirestoreProducts ? 'Preview only' : stock > 0 ? 'Add to cart' : 'Out of stock'}
             </Button>
             {stock > 0 && stock <= 10 && (
               <span className="text-sm font-medium text-red-600">Only {stock} left!</span>
             )}
           </div>
+          {useFirestoreProducts && (
+            <p className="mt-2 text-xs text-ink-muted">
+              This product is loaded from Firestore (VITE_USE_FIRESTORE_PRODUCTS). Cart integration for
+              Firestore-sourced products lands in a later migration phase.
+            </p>
+          )}
           {addError && <p className="mt-2 text-sm text-red-600">{addError}</p>}
 
           {product.description && (

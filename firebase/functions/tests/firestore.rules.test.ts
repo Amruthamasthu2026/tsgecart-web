@@ -133,6 +133,100 @@ describe('firestore.rules — default-deny foundation (real committed rules file
   });
 });
 
+describe('firestore.rules — products/categories (Phase 3, real committed rules file)', () => {
+  const activeProduct = {
+    name: 'Fresh Almonds',
+    slug: 'fresh-almonds',
+    isActive: true,
+    isFeatured: false,
+    isBestSeller: false,
+    categoryId: 'dry-fruits',
+  };
+  const inactiveProduct = { ...activeProduct, slug: 'discontinued-item', isActive: false };
+  const activeCategory = { name: 'Dry Fruits', slug: 'dry-fruits', isActive: true, sortOrder: 0 };
+  const inactiveCategory = { ...activeCategory, slug: 'seasonal-old', isActive: false };
+
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await Promise.all([
+        db.doc('products/fresh-almonds').set(activeProduct),
+        db.doc('products/discontinued-item').set(inactiveProduct),
+        db.doc('categories/dry-fruits').set(activeCategory),
+        db.doc('categories/seasonal-old').set(inactiveCategory),
+      ]);
+    });
+  });
+
+  it('an anonymous caller can read an active product', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertSucceeds(anon.firestore().doc('products/fresh-almonds').get());
+  });
+
+  it('an anonymous caller can read an active category', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertSucceeds(anon.firestore().doc('categories/dry-fruits').get());
+  });
+
+  it('an anonymous caller cannot read an inactive product', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('products/discontinued-item').get());
+  });
+
+  it('an anonymous caller cannot read an inactive category', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('categories/seasonal-old').get());
+  });
+
+  it('STAFF/ADMIN can read an inactive product (admin catalog UI needs this)', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('products/discontinued-item').get());
+  });
+
+  it('an ADMIN caller can create/update/delete a product', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    const doc = admin.firestore().doc('products/new-item');
+    await assertSucceeds(doc.set({ ...activeProduct, slug: 'new-item' }));
+    await assertSucceeds(doc.update({ isFeatured: true }));
+    await assertSucceeds(doc.delete());
+  });
+
+  it('an ADMIN caller can write a category', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('categories/new-cat').set({ ...activeCategory, slug: 'new-cat' }));
+  });
+
+  it('a STAFF caller holding the products.manage permission can write a product (claims, not role alone, decide access)', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', {
+      role: 'STAFF',
+      permissions: ['products.manage'],
+    });
+    await assertSucceeds(staff.firestore().doc('products/staff-item').set({ ...activeProduct, slug: 'staff-item' }));
+  });
+
+  it('a STAFF caller WITHOUT the products.manage permission cannot write a product', async () => {
+    const staff = mainEnv.authenticatedContext('staff-2', { role: 'STAFF', permissions: ['orders.manage'] });
+    await assertFails(staff.firestore().doc('products/staff-item-2').set({ ...activeProduct, slug: 'staff-item-2' }));
+  });
+
+  it('a signed-in CUSTOMER cannot write a product', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(
+      customer.firestore().doc('products/fresh-almonds').update({ isFeatured: true }),
+    );
+  });
+
+  it('an anonymous caller cannot write a product', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('products/fresh-almonds').update({ isFeatured: true }));
+  });
+
+  it('a CUSTOMER cannot write a category', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('categories/dry-fruits').update({ sortOrder: 99 }));
+  });
+});
+
 describe('firestore.rules helper functions (isAdmin/isOwner) against real custom claims', () => {
   beforeEach(async () => {
     await helperEnv.withSecurityRulesDisabled(async (adminCtx) => {

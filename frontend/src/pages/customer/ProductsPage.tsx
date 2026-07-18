@@ -5,6 +5,14 @@ import { ProductCard } from '../../components/product/ProductCard';
 import { Seo } from '../../components/Seo';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Link } from 'react-router-dom';
+import {
+  firebaseProductsApi,
+  useFirestoreProducts,
+  toLegacyProduct,
+  toLegacyCategory,
+  toLegacyPagination,
+  type FirestoreProductFilters,
+} from '../../services/firebaseProducts';
 
 const SORTS: Array<{ label: string; sort: ProductFilters['sort']; order: ProductFilters['order'] }> = [
   { label: 'Newest', sort: 'createdAt', order: 'desc' },
@@ -21,21 +29,36 @@ export function ProductsPage() {
   const page = Number(params.get('page') ?? '1');
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => catalogApi.listCategories(),
+    queryKey: ['categories', useFirestoreProducts],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? (await firebaseProductsApi.getCategories()).map(toLegacyCategory)
+        : catalogApi.listCategories(),
   });
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['products', { category, search, sortKey, order, page }],
-    queryFn: () =>
-      catalogApi.listProducts({
+    queryKey: ['products', { category, search, sortKey, order, page }, useFirestoreProducts],
+    queryFn: async () => {
+      if (useFirestoreProducts) {
+        const result = await firebaseProductsApi.getProducts({
+          categorySlug: category,
+          search,
+          sort: sortKey as FirestoreProductFilters['sort'],
+          order,
+          page,
+          limit: 24,
+        });
+        return { products: result.products.map(toLegacyProduct), meta: toLegacyPagination(result.meta) };
+      }
+      return catalogApi.listProducts({
         category,
         search,
         sort: sortKey as ProductFilters['sort'],
         order,
         page,
         limit: 24,
-      }),
+      });
+    },
     placeholderData: keepPreviousData,
   });
 

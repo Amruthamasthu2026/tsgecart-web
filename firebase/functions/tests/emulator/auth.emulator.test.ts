@@ -20,10 +20,11 @@ import { auth as adminAuth } from '../../src/config/firebaseAdmin';
 /**
  * Real Auth + Functions emulator integration tests (objectives 12/13).
  *
- * Run via `npm run test:auth-emulator` (wraps this file in `firebase
- * emulators:exec --only auth,functions`, after a build so the emulator
- * loads the compiled `onUserCreated` / `setUserRole` functions) — requires
- * live Auth + Functions emulators, NOT covered by the plain `npm test` run.
+ * Run via `npm run test:emulator` (wraps this file in `firebase
+ * emulators:exec --only auth,firestore,functions`, after a build so the
+ * emulator loads the compiled `onUserCreated` / `setUserRole` functions) —
+ * requires live Auth + Functions emulators, NOT covered by the plain `npm
+ * test` run.
  *
  * Every flow here exercises the real emulator, not mocks: real signup
  * (triggering the real `beforeUserCreated` blocking function), real

@@ -21,6 +21,7 @@
     "firebase:build": "npm --prefix firebase/functions run build",
     "firebase:test": "npm --prefix firebase/functions run test",
     "firebase:test:rules": "npm --prefix firebase/functions run test:rules",
+    "firebase:test:emulator": "npm --prefix firebase/functions run test:emulator",
     "firebase:emulator": "cd firebase/functions && node_modules/.bin/firebase emulators:start --project=demo-tsgecart",
     "firebase:emulator:export": "cd firebase/functions && node_modules/.bin/firebase emulators:export ../.emulator-data --project=demo-tsgecart",
     "firebase:emulator:import": "cd firebase/functions && node_modules/.bin/firebase emulators:start --project=demo-tsgecart --import=../.emulator-data"

@@ -97,17 +97,21 @@ service cloud.firestore {
     //     request.resource.data.userId == request.auth.uid;
     // }
 
-    // match /categories/{categoryId} {
-    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
-    //   allow write: if hasPermission('products.manage');
-    // }
+    // ── Catalog (Phase 3 — products/categories migrated) ────────────────
+    // Public: read active documents only. STAFF/ADMIN (products.manage):
+    // full read (including inactive, for the admin catalog UI) + write.
+    // Only custom claims decide admin access — never a document field.
+    match /categories/{categoryId} {
+      allow read: if resource.data.isActive == true || isStaffOrAdmin();
+      allow create, update, delete: if hasPermission('products.manage');
+    }
+
+    match /products/{productId} {
+      allow read: if resource.data.isActive == true || isStaffOrAdmin();
+      allow create, update, delete: if hasPermission('products.manage');
+    }
 
     // match /brands/{brandId} {
-    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
-    //   allow write: if hasPermission('products.manage');
-    // }
-
-    // match /products/{productId} {
     //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
     //   allow write: if hasPermission('products.manage');
     // }

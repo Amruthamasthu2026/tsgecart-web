@@ -1,0 +1,224 @@
+{
+  "categories": [
+    {
+      "id": "sample-cat-1",
+      "name": "Dry Fruits",
+      "slug": "dry-fruits",
+      "description": "Premium dry fruits and nuts",
+      "imageUrl": null,
+      "parentSlug": null,
+      "sortOrder": 1,
+      "isActive": true,
+      "productCount": 4
+    },
+    {
+      "id": "sample-cat-2",
+      "name": "Dairy",
+      "slug": "dairy",
+      "description": "Fresh dairy products",
+      "imageUrl": null,
+      "parentSlug": null,
+      "sortOrder": 2,
+      "isActive": true,
+      "productCount": 2
+    },
+    {
+      "id": "sample-cat-3",
+      "name": "Fruits & Vegetables",
+      "slug": "fruits-vegetables",
+      "description": "Farm-fresh produce",
+      "imageUrl": null,
+      "parentSlug": null,
+      "sortOrder": 3,
+      "isActive": true,
+      "productCount": 1
+    }
+  ],
+  "products": [
+    {
+      "id": "sample-prod-1",
+      "name": "Premium Almonds",
+      "slug": "premium-almonds",
+      "description": "Handpicked California almonds, rich in protein and healthy fats.",
+      "categorySlug": "dry-fruits",
+      "categoryName": "Dry Fruits",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1508061253366-f7da158b6d46?w=600"],
+      "gstRate": "5.00",
+      "hsnCode": "0802",
+      "isActive": true,
+      "isFeatured": true,
+      "isBestSeller": false,
+      "ratingAvg": "4.50",
+      "ratingCount": 128,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "ALM-250", "unitLabel": "250 g", "mrp": "349.00", "price": "299.00", "isActive": true, "isDefault": false, "stock": 40, "reserved": 2 },
+        { "sku": "ALM-500", "unitLabel": "500 g", "mrp": "649.00", "price": "549.00", "isActive": true, "isDefault": true, "stock": 25, "reserved": 3 }
+      ]
+    },
+    {
+      "id": "sample-prod-2",
+      "name": "Kashmiri Walnuts",
+      "slug": "kashmiri-walnuts",
+      "description": "Whole walnut halves, sourced from Kashmir valleys.",
+      "categorySlug": "dry-fruits",
+      "categoryName": "Dry Fruits",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1553787434-dd9eb4ea4d33?w=600"],
+      "gstRate": "5.00",
+      "hsnCode": "0802",
+      "isActive": true,
+      "isFeatured": false,
+      "isBestSeller": true,
+      "ratingAvg": "4.70",
+      "ratingCount": 96,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "WAL-500", "unitLabel": "500 g", "mrp": "799.00", "price": "699.00", "isActive": true, "isDefault": true, "stock": 15, "reserved": 1 }
+      ]
+    },
+    {
+      "id": "sample-prod-3",
+      "name": "Roasted Cashews",
+      "slug": "roasted-cashews",
+      "description": "Lightly salted, roasted whole cashews.",
+      "categorySlug": "dry-fruits",
+      "categoryName": "Dry Fruits",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1600189261867-30e5ffe7b8da?w=600"],
+      "gstRate": "5.00",
+      "hsnCode": "0801",
+      "isActive": true,
+      "isFeatured": true,
+      "isBestSeller": false,
+      "ratingAvg": "4.30",
+      "ratingCount": 54,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "CSH-200", "unitLabel": "200 g", "mrp": "299.00", "price": "249.00", "isActive": true, "isDefault": true, "stock": 60, "reserved": 5 }
+      ]
+    },
+    {
+      "id": "sample-prod-4",
+      "name": "Golden Raisins",
+      "slug": "golden-raisins",
+      "description": "Sun-dried golden raisins, naturally sweet.",
+      "categorySlug": "dry-fruits",
+      "categoryName": "Dry Fruits",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1596591868231-05e808fd3d8f?w=600"],
+      "gstRate": "5.00",
+      "hsnCode": "0806",
+      "isActive": true,
+      "isFeatured": false,
+      "isBestSeller": false,
+      "ratingAvg": "4.10",
+      "ratingCount": 22,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "RSN-250", "unitLabel": "250 g", "mrp": "199.00", "price": "169.00", "isActive": true, "isDefault": true, "stock": 30, "reserved": 0 }
+      ]
+    },
+    {
+      "id": "sample-prod-5",
+      "name": "Farm Fresh Paneer",
+      "slug": "farm-fresh-paneer",
+      "description": "Soft, fresh paneer made from whole milk.",
+      "categorySlug": "dairy",
+      "categoryName": "Dairy",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1631206753348-db44968fd440?w=600"],
+      "gstRate": "5.00",
+      "hsnCode": "0406",
+      "isActive": true,
+      "isFeatured": true,
+      "isBestSeller": true,
+      "ratingAvg": "4.60",
+      "ratingCount": 210,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "PNR-200", "unitLabel": "200 g", "mrp": "89.00", "price": "79.00", "isActive": true, "isDefault": true, "stock": 50, "reserved": 4 }
+      ]
+    },
+    {
+      "id": "sample-prod-6",
+      "name": "Toned Milk",
+      "slug": "toned-milk",
+      "description": "Fresh toned milk, pasteurized daily.",
+      "categorySlug": "dairy",
+      "categoryName": "Dairy",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600"],
+      "gstRate": "0.00",
+      "hsnCode": "0401",
+      "isActive": true,
+      "isFeatured": false,
+      "isBestSeller": false,
+      "ratingAvg": "4.20",
+      "ratingCount": 87,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "MLK-1L", "unitLabel": "1 L", "mrp": "66.00", "price": "62.00", "isActive": true, "isDefault": true, "stock": 100, "reserved": 10 }
+      ]
+    },
+    {
+      "id": "sample-prod-7",
+      "name": "Alphonso Mangoes",
+      "slug": "alphonso-mangoes",
+      "description": "Ratnagiri Alphonso mangoes, in season.",
+      "categorySlug": "fruits-vegetables",
+      "categoryName": "Fruits & Vegetables",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1591073113125-e46713c829ed?w=600"],
+      "gstRate": "0.00",
+      "hsnCode": "0804",
+      "isActive": true,
+      "isFeatured": true,
+      "isBestSeller": true,
+      "ratingAvg": "4.80",
+      "ratingCount": 312,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "MNG-1KG", "unitLabel": "1 kg", "mrp": "399.00", "price": "349.00", "isActive": true, "isDefault": true, "stock": 20, "reserved": 2 }
+      ]
+    },
+    {
+      "id": "sample-prod-8",
+      "name": "Organic Spinach",
+      "slug": "organic-spinach",
+      "description": "Fresh organic spinach bunches.",
+      "categorySlug": "fruits-vegetables",
+      "categoryName": "Fruits & Vegetables",
+      "brandSlug": null,
+      "brandName": null,
+      "images": ["https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600"],
+      "gstRate": "0.00",
+      "hsnCode": "0709",
+      "isActive": false,
+      "isFeatured": false,
+      "isBestSeller": false,
+      "ratingAvg": "3.90",
+      "ratingCount": 14,
+      "metaTitle": null,
+      "metaDescription": null,
+      "variants": [
+        { "sku": "SPN-250", "unitLabel": "250 g", "mrp": "49.00", "price": "39.00", "isActive": true, "isDefault": true, "stock": 0, "reserved": 0 }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# TSG eCart — Firebase Migration (Phase 1: Foundation)
+# TSG eCart — Firebase Migration
 
 This directory contains a **Firebase implementation built alongside** the
 existing Express/Prisma/MySQL backend in `../backend`. It does not replace
@@ -6,10 +6,20 @@ anything yet. See `../docs/firebase-migration-audit.md` for the full audit,
 component-mapping table, proposed Firestore data model, and auth-migration
 design that this foundation is built against.
 
-**Current scope (Phase 1):** project scaffold, emulator configuration,
-default-deny Firestore Security Rules, and a single health-check Cloud
-Function. No application data, authentication, or business logic has been
-migrated. The existing backend keeps serving 100% of production traffic.
+**Progress so far:**
+- **Phase 1 (Foundation):** project scaffold, emulator configuration,
+  default-deny Firestore Security Rules, a health-check Cloud Function.
+- **Phase 2 (Authentication):** Firebase Authentication + custom claims
+  (CUSTOMER/STAFF/ADMIN/DELIVERY_PARTNER), added alongside the existing
+  JWT auth — see `frontend/src/contexts/FirebaseAuthContext.tsx`.
+- **Phase 3 (Catalog — products/categories):** `products`/`categories`
+  Firestore collections, read-only Callable Functions, and a
+  feature-flagged Firestore-backed frontend catalog surface — see
+  "Catalog collections (Phase 3)" below.
+
+No cart, orders, payments, wishlist, rewards, or coupons data has been
+migrated. The existing backend keeps serving 100% of production traffic;
+nothing here is live in production yet.
 
 ---
 
@@ -276,3 +286,74 @@ migration begins (a later, separately approved phase), the plan is:
 
 No current frontend API calls, routes, UI, or authentication behavior change
 in this session.
+
+*(The plan above was written during Phase 1. Phase 2 implemented the
+Firebase Auth pieces — see `frontend/src/contexts/FirebaseAuthContext.tsx`,
+`frontend/src/lib/firebase.ts`. Phase 3 implements the catalog pieces — see
+the next section.)*
+
+## Catalog collections (Phase 3 — products/categories)
+
+`products/{slug}` and `categories/{slug}` are the first real Firestore
+collections in this migration (doc ID = slug, matching
+`docs/firebase-migration-audit.md` §30's stated rationale — slug lookup is
+a direct `doc().get()`, never a query, so it needs no index).
+
+**Deviation from §30, recorded here on purpose:** §30 documents `products`
+explicitly *not* embedding variants, with a separate `productVariants`
+collection. Phase 3 only covers browsing (product/category listing and
+detail) — full per-variant selection and cart integration are out of scope
+for this phase (see the Phase 3 instructions: "Do not continue to Cart...
+yet"). Rather than build a variants collection nothing yet reads from,
+`products/{slug}` instead carries a denormalized `defaultVariant` snapshot
+(`sku`, `unitLabel`, `mrpPaise`, `pricePaise`, `stock`) plus
+`minPricePaise`/`maxPricePaise` for sorting/filtering. The real
+`productVariants` collection — multiple variants per product, live
+inventory, cart line items — is real remaining work for the phase that
+migrates Cart/Orders, not a decision that's been made and closed.
+
+**Read/write access** (`firestore.rules`): public read of `isActive: true`
+documents; STAFF/ADMIN holding the `products.manage` claim/permission get
+full read (including inactive) and all writes. As with every other
+collection in this file, authority is exclusively the caller's custom
+claims — never a document field, never an email check.
+
+**Functions** (`firebase/functions/src/catalog/`): `getProducts`,
+`getProductBySlug`, `getFeaturedProducts`, `getTrendingProducts`,
+`getCategories` — all public Callable Functions, all read-only.
+`getTrendingProducts` replicates (server-side, as one reusable function)
+the fallback chain the frontend's `HomePage` already implemented
+client-side: bestSeller → featured → newest. There is no `isTrending`
+field anywhere — "trending" has never been a real field in this app, only
+a UI selection rule (see the Phase 3 completion report for the research
+that established this).
+
+**Indexes** (`firestore.indexes.json`): covers the query combinations
+Functions above actually issue — sort by each of createdAt/name/
+ratingAvg/price, featured, bestSeller, category filter (alone and combined
+with price-sort/name-sort), and the categories listing order. The
+Firestore emulator does not enforce indexes (queries succeed locally
+without them), so the emulator test suite passing is not proof every
+production query path is indexed — a query combination outside this list
+run against a **real, non-emulator** Firestore project will fail with an
+error that includes a direct console link to create the missing index.
+
+**Migration scripts** (not executed as part of this migration, per the
+same rule Phase 2's user-import scripts follow):
+- `backend/scripts/exportProductsFromMysql.ts` — read-only MySQL export.
+- `firebase/functions/scripts/importProductsToFirestore.ts` — dry-run by
+  default; `--execute` performs the real Firestore writes.
+
+The sample data used for local emulator testing/manual verification during
+Phase 3 was a small hand-authored fixture (not a real MySQL export, since
+this sandbox has no live MySQL to export from) — see the Phase 3 completion
+report for exactly what was seeded and how.
+
+**Frontend** (`frontend/src/services/firebaseProducts.ts`): a new,
+separate service calling the Callable Functions above — it does not modify
+or replace `features/catalog/catalog.api.ts`. `VITE_USE_FIRESTORE_PRODUCTS=true`
+switches the Home/Products/Product-detail pages to this service (via a
+small adapter that reshapes the Firestore response into the exact `Product`
+type `ProductCard` and the rest of the existing rendering code already
+expect, so no rendering code needed to change). Leaving the flag unset (the
+default) keeps every page on the existing Express API, unchanged.

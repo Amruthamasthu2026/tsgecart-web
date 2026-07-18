@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore --project=demo-tsgecart \"vitest run --config vitest.rules.config.ts\"",
-    "test:auth-emulator": "npm run build && firebase emulators:exec --only auth,functions --project=demo-tsgecart \"vitest run --config vitest.emulator.config.ts\"",
+    "test:emulator": "npm run build && firebase emulators:exec --only auth,firestore,functions --project=demo-tsgecart \"vitest run --config vitest.emulator.config.ts\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "deploy": "firebase deploy --only functions",

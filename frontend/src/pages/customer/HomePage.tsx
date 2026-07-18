@@ -2,6 +2,12 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
 import { discoveryApi, bannersApi } from '../../features/discovery/discovery.api';
+import {
+  firebaseProductsApi,
+  useFirestoreProducts,
+  toLegacyProduct,
+  toLegacyCategory,
+} from '../../services/firebaseProducts';
 import { ProductCard } from '../../components/product/ProductCard';
 import { Hero } from '../../components/home/Hero';
 import { FeatureStrip } from '../../components/home/FeatureStrip';
@@ -58,16 +64,29 @@ export function HomePage() {
   const { isAuthenticated } = useAuth();
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => catalogApi.listCategories(),
+    queryKey: ['categories', useFirestoreProducts],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? (await firebaseProductsApi.getCategories()).map(toLegacyCategory)
+        : catalogApi.listCategories(),
   });
   const { data: featured, isLoading: featuredLoading } = useQuery({
-    queryKey: ['products', 'featured'],
-    queryFn: () => catalogApi.listProducts({ featured: true, limit: 12 }),
+    queryKey: ['products', 'featured', useFirestoreProducts],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? { products: (await firebaseProductsApi.getFeaturedProducts(12)).map(toLegacyProduct) }
+        : catalogApi.listProducts({ featured: true, limit: 12 }),
   });
   const { data: bestsellers } = useQuery({
-    queryKey: ['products', 'bestseller'],
-    queryFn: () => catalogApi.listProducts({ bestSeller: true, limit: 8 }),
+    queryKey: ['products', 'bestseller', useFirestoreProducts],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? {
+            products: (await firebaseProductsApi.getProducts({ bestSeller: true, limit: 8 })).products.map(
+              toLegacyProduct,
+            ),
+          }
+        : catalogApi.listProducts({ bestSeller: true, limit: 8 }),
   });
   const { data: banners = [] } = useQuery({
     queryKey: ['banners', 'HOME_HERO'],
@@ -85,8 +104,15 @@ export function HomePage() {
   // Fallback source so Trending Deals always populates from existing products,
   // even if none are flagged featured/bestseller. Read-only — never writes.
   const { data: latest } = useQuery({
-    queryKey: ['products', 'latest-deals'],
-    queryFn: () => catalogApi.listProducts({ limit: 8, sort: 'createdAt', order: 'desc' }),
+    queryKey: ['products', 'latest-deals', useFirestoreProducts],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? {
+            products: (
+              await firebaseProductsApi.getProducts({ limit: 8, sort: 'createdAt', order: 'desc' })
+            ).products.map(toLegacyProduct),
+          }
+        : catalogApi.listProducts({ limit: 8, sort: 'createdAt', order: 'desc' }),
   });
 
   const featuredProducts = featured?.products ?? [];

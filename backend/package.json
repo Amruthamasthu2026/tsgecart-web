@@ -18,7 +18,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "export:firebase-users": "tsx scripts/exportUsersForFirebaseImport.ts"
+    "export:firebase-users": "tsx scripts/exportUsersForFirebaseImport.ts",
+    "export:firebase-products": "tsx scripts/exportProductsFromMysql.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

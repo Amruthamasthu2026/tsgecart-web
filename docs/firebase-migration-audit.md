@@ -656,3 +656,41 @@ All 40 requested audit areas, confirmed covered above:
 | 38 | Admin route protection | §19 |
 | 39 | SEO and routing | §19 |
 | 40 | Existing tests and coverage | §20 |
+
+## 34. Implementation Log — Phase 3 (products/categories, actually built)
+
+This section records where the actual Phase 3 implementation deviated from
+the §30 design proposal above, and why. §30 remains the long-term target;
+this is the honest record of what Phase 3 shipped against it.
+
+- **`productVariants` was not migrated to its own collection.** §30
+  documents variants as a separate collection specifically so a stock
+  change doesn't force a full-product rewrite. Phase 3 is scoped to
+  browsing only (product/category listing + detail) — cart/orders
+  integration, which is what actually needs multi-variant selection and
+  live per-variant inventory, is explicitly out of scope for this phase.
+  Building a variants collection nothing would yet read from would be
+  speculative. Instead, `products/{slug}` carries a denormalized
+  `defaultVariant` snapshot (`sku`, `unitLabel`, `mrpPaise`, `pricePaise`,
+  `stock`) plus `minPricePaise`/`maxPricePaise` for sorting/filtering. A
+  product page sourced from Firestore therefore shows one variant/price,
+  not the full variant selector the existing Express-backed page shows.
+  Real remaining work: `productVariants` collection + Function(s), done
+  alongside the Cart/Orders migration phase, not before.
+- **No `isTrending` field was added.** Confirmed by code search: "trending"
+  has never been a real field in the Prisma schema or the Express API — it
+  is a purely client-side fallback selection in `HomePage.tsx`
+  (bestSeller → featured → newest). `getTrendingProducts()` replicates that
+  exact fallback server-side, as one reusable Callable Function, rather
+  than inventing a new field.
+- **`sort=price` now does a real price sort.** The existing Express API's
+  `sort=price` silently falls back to `createdAt` (see
+  `backend/src/modules/products/products.service.ts`) because MySQL/Prisma
+  has no per-product price without a variant join. Firestore's
+  `minPricePaise` snapshot makes a genuine price sort straightforward — a
+  deliberate, noted improvement, not an accidental behavior change (the
+  Express API and its behavior are untouched).
+- **Search is a best-effort `name` prefix match**, not the Express API's
+  substring `contains` on name/description — Firestore has no native
+  full-text search. When a search term is supplied, results are ordered by
+  `name` regardless of the requested sort (a documented limitation).
