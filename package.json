@@ -14,7 +14,16 @@
     "lint": "npm --workspace backend run lint && npm --workspace frontend run lint",
     "test": "npm --workspace backend run test",
     "docker:up": "docker compose up -d mysql redis",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "firebase:install": "npm --prefix firebase/functions install",
+    "firebase:typecheck": "npm --prefix firebase/functions run typecheck",
+    "firebase:lint": "npm --prefix firebase/functions run lint",
+    "firebase:build": "npm --prefix firebase/functions run build",
+    "firebase:test": "npm --prefix firebase/functions run test",
+    "firebase:test:rules": "npm --prefix firebase/functions run test:rules",
+    "firebase:emulator": "cd firebase/functions && node_modules/.bin/firebase emulators:start --project=demo-tsgecart",
+    "firebase:emulator:export": "cd firebase/functions && node_modules/.bin/firebase emulators:export ../.emulator-data --project=demo-tsgecart",
+    "firebase:emulator:import": "cd firebase/functions && node_modules/.bin/firebase emulators:start --project=demo-tsgecart --import=../.emulator-data"
   },
   "engines": {
     "node": ">=20.0.0"

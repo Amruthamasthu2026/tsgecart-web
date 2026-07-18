@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// TSG eCart — Storage Rules foundation (Phase 1).
+//
+// Cloudinary remains the image host for the first migration phase (per the
+// user's explicit instruction — see docs/firebase-migration-audit.md §18).
+// Firebase Storage is not used by the application yet. This default-deny
+// ruleset exists only so the `storage` emulator/service has a valid,
+// non-permissive configuration if it is ever started — it grants no access.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
