@@ -23,6 +23,7 @@ import { spinRouter } from '../modules/spin/spin.routes.js';
 import { bannersRouter } from '../modules/banners/banners.routes.js';
 import { discoveryRouter } from '../modules/discovery/discovery.routes.js';
 import { adminRouter } from '../modules/admin/admin.routes.js';
+import { rewardSpinRouter } from '../modules/rewardspin/rewardSpin.routes.js';
 
 /**
  * Root API router. Feature module routers are mounted here as each phase
@@ -69,3 +70,4 @@ apiRouter.use('/spin', spinRouter);
 apiRouter.use('/banners', bannersRouter);
 apiRouter.use('/discovery', discoveryRouter);
 apiRouter.use('/admin', adminRouter);
+apiRouter.use('/rewards-spin', rewardSpinRouter);

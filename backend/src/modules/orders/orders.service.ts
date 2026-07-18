@@ -6,6 +6,7 @@ import { deliveryService } from '../delivery/delivery.service.js';
 import { walletService } from '../wallet/wallet.service.js';
 import { notificationsService } from '../notifications/notifications.service.js';
 import { referralService } from '../referral/referral.service.js';
+import { rewardSpinService } from '../rewardspin/rewardSpin.service.js';
 import { razorpay, isRazorpayConfigured } from '../../config/razorpay.js';
 import { generateOrderNumber } from '../../shared/tokens.js';
 import { buildPaginationMeta } from '../../shared/apiResponse.js';
@@ -55,10 +56,12 @@ export const ordersService = {
     // Pricing.
     let discount = 0;
     let couponId: string | null = null;
+    let rewardCouponId: string | null = null;
     if (input.couponCode) {
       const evaluation = await couponsService.evaluate(input.couponCode, userId, cart.subtotal);
       discount = evaluation.discount;
-      couponId = evaluation.couponId;
+      if (evaluation.kind === 'GLOBAL') couponId = evaluation.couponId;
+      else rewardCouponId = evaluation.rewardCouponId;
     }
     const deliveryCharge = deliveryService.computeDeliveryCharge(service.zone, cart.subtotal);
     const grandTotal = round(Math.max(0, cart.subtotal - discount) + deliveryCharge);
@@ -147,12 +150,17 @@ export const ordersService = {
         });
       }
 
-      // Record coupon redemption + usage.
+      // Record coupon redemption + usage (global store coupons).
       if (couponId) {
         await tx.couponRedemption.create({
           data: { couponId, userId, orderId: created.id },
         });
         await tx.coupon.update({ where: { id: couponId }, data: { usedCount: { increment: 1 } } });
+      }
+
+      // Mark a spin-wheel reward coupon as single-use redeemed.
+      if (rewardCouponId) {
+        await rewardSpinService.markRedeemed(rewardCouponId, created.id, tx);
       }
 
       // Empty the cart.

@@ -98,6 +98,9 @@ const AdminCategories = lazy(() =>
 const AdminCoupons = lazy(() =>
   import('../pages/admin/AdminCoupons').then((m) => ({ default: m.AdminCoupons })),
 );
+const AdminRewards = lazy(() =>
+  import('../pages/admin/AdminRewards').then((m) => ({ default: m.AdminRewards })),
+);
 const AdminCustomers = lazy(() =>
   import('../pages/admin/AdminCustomers').then((m) => ({ default: m.AdminCustomers })),
 );
@@ -165,6 +168,7 @@ export const router = createBrowserRouter([
           { path: 'products', element: wrap(<AdminProducts />) },
           { path: 'categories', element: wrap(<AdminCategories />) },
           { path: 'coupons', element: wrap(<AdminCoupons />) },
+          { path: 'rewards', element: wrap(<AdminRewards />) },
           { path: 'customers', element: wrap(<AdminCustomers />) },
           { path: 'delivery', element: wrap(<AdminDelivery />) },
           { path: 'reviews', element: wrap(<AdminReviews />) },

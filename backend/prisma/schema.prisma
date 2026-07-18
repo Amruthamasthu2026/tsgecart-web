@@ -75,6 +75,12 @@ enum ReferralStatus {
   EXPIRED
 }
 
+enum RewardCouponStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+}
+
 // ─────────────────────────────────────────────────────────────
 // IDENTITY & ACCESS
 // ─────────────────────────────────────────────────────────────
@@ -106,6 +112,7 @@ model User {
   spinHistory        SpinHistory[]
   recentlyViewed     RecentlyViewed[]
   permissions        UserPermission[]
+  rewardCoupons      RewardCoupon[]
 
   referralsMade    Referral[] @relation("Referrer")
   referralReceived Referral?  @relation("Referee")
@@ -677,4 +684,41 @@ model Setting {
   key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// REWARDS — spin-wheel reward tiers + issued single-use reward coupons
+// (separate from global Coupon; does not change existing coupon behavior)
+// ─────────────────────────────────────────────────────────────
+
+model RewardConfig {
+  id             String   @id @default(cuid())
+  cashbackAmount Decimal  @db.Decimal(10, 2)
+  probability    Int // percentage weight; active tiers must total 100
+  minOrder       Decimal  @default(0) @db.Decimal(10, 2)
+  expiryDays     Int      @default(3)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model RewardCoupon {
+  id              String             @id @default(cuid())
+  code            String             @unique
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cashbackAmount  Decimal            @db.Decimal(10, 2)
+  minOrder        Decimal            @default(0) @db.Decimal(10, 2)
+  status          RewardCouponStatus @default(ACTIVE)
+  expiresAt       DateTime
+  redeemedOrderId String?
+  redeemedAt      DateTime?
+  createdAt       DateTime           @default(now())
+
+  @@index([userId, status])
+  @@index([code])
+  @@index([createdAt])
 }

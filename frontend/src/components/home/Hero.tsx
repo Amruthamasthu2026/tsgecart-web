@@ -10,30 +10,35 @@ interface HeroProps {
   heroLink?: string;
   badge?: string;
   title?: string;
+  description?: string;
+  ctaLabel?: string;
+  ctaTo?: string;
 }
 
 export function Hero({
   deals,
   heroImage,
   heroLink,
-  badge = 'UP TO 50% OFF',
-  title = 'Great Summer\nSale Live Now',
+  badge = 'PREMIUM QUALITY',
+  title = 'Premium Dry Fruits\n& Healthy Oils',
+  description = 'Fresh, carefully selected products delivered across Hyderabad.',
+  ctaLabel = 'Shop Now',
+  ctaTo = '/products',
 }: HeroProps) {
+  // When deals exist, the banner carries extra bottom space so the Trending
+  // Deals card can overlap ~30–35% of the hero without a white gap.
+  const bannerPadBottom = deals.length > 0 ? 'pb-28 sm:pb-40 lg:pb-48' : 'pb-14';
+
   const banner = (
     <div className="relative overflow-hidden rounded-b-[2.5rem] bg-ink">
-      {/* Background image / gradient */}
       {heroImage ? (
-        <img
-          src={heroImage}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-90"
-        />
+        <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90" />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-[#2a2118] via-ink to-black" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
 
-      <div className="container-app relative flex min-h-[320px] flex-col justify-center py-14 sm:min-h-[360px]">
+      <div className={`container-app relative flex min-h-[320px] flex-col justify-center pt-14 sm:min-h-[360px] ${bannerPadBottom}`}>
         <motion.span
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,6 +55,24 @@ export function Hero({
         >
           {title}
         </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="mt-4 max-w-md text-sm text-white/80 sm:text-base"
+        >
+          {description}
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+        >
+          <Link to={ctaTo} className="btn-primary mt-6 w-fit">
+            {ctaLabel}
+            <ArrowRightIcon />
+          </Link>
+        </motion.div>
       </div>
     </div>
   );
@@ -58,9 +81,9 @@ export function Hero({
     <section className="relative">
       {heroLink ? <Link to={heroLink}>{banner}</Link> : banner}
 
-      {/* Overlapping Trending Deals card */}
+      {/* Trending Deals — overlaps ~30–35% of the hero bottom */}
       {deals.length > 0 && (
-        <div className="container-app relative z-10 -mt-10">
+        <div className="container-app relative z-10 -mt-24 sm:-mt-36 lg:-mt-44">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
