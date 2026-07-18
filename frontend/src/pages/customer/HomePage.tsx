@@ -82,10 +82,23 @@ export function HomePage() {
     queryFn: () => discoveryApi.recentlyViewed(),
     enabled: isAuthenticated,
   });
+  // Fallback source so Trending Deals always populates from existing products,
+  // even if none are flagged featured/bestseller. Read-only — never writes.
+  const { data: latest } = useQuery({
+    queryKey: ['products', 'latest-deals'],
+    queryFn: () => catalogApi.listProducts({ limit: 8, sort: 'createdAt', order: 'desc' }),
+  });
 
   const featuredProducts = featured?.products ?? [];
-  const dealProducts =
-    (bestsellers?.products?.length ? bestsellers.products : featuredProducts).slice(0, 4);
+  // Trending Deals selection priority: bestSeller flag → featured flag →
+  // safe selection of the newest active products returned by the API.
+  const dealProducts = (
+    bestsellers?.products?.length
+      ? bestsellers.products
+      : featuredProducts.length
+        ? featuredProducts
+        : (latest?.products ?? [])
+  ).slice(0, 4);
   const heroBanner = banners[0];
 
   return (
@@ -105,6 +118,11 @@ export function HomePage() {
         deals={dealProducts}
         heroImage={heroBanner?.imageUrl}
         heroLink={heroBanner?.linkUrl ?? undefined}
+        badge="PREMIUM QUALITY"
+        title={'Premium Dry Fruits\n& Healthy Oils'}
+        description="Fresh, carefully selected products delivered across Hyderabad."
+        ctaLabel="Shop Now"
+        ctaTo="/products"
       />
 
       <FeatureStrip />

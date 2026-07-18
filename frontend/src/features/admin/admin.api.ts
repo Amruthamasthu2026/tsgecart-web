@@ -194,6 +194,50 @@ export const adminApi = {
     await apiClient.delete(`/banners/${id}`);
   },
 
+  // Rewards / spin-wheel configuration
+  async listRewardConfigs() {
+    const { data } = await apiClient.get('/rewards-spin/admin/configs');
+    return data.data as {
+      configs: Array<{
+        id: string;
+        cashbackAmount: string;
+        probability: number;
+        minOrder: string;
+        expiryDays: number;
+        isActive: boolean;
+        sortOrder: number;
+      }>;
+      activeProbabilityTotal: number;
+      isSpinnable: boolean;
+    };
+  },
+  async createRewardConfig(payload: unknown) {
+    const { data } = await apiClient.post('/rewards-spin/admin/configs', payload);
+    return data.data.config;
+  },
+  async updateRewardConfig(id: string, payload: unknown) {
+    const { data } = await apiClient.put(`/rewards-spin/admin/configs/${id}`, payload);
+    return data.data.config;
+  },
+  async deleteRewardConfig(id: string) {
+    await apiClient.delete(`/rewards-spin/admin/configs/${id}`);
+  },
+  async seedRewardDefaults() {
+    const { data } = await apiClient.post('/rewards-spin/admin/seed-defaults');
+    return data.data;
+  },
+  async rewardAnalytics() {
+    const { data } = await apiClient.get('/rewards-spin/admin/analytics');
+    return data.data as {
+      totalSpins: number;
+      todaySpins: number;
+      couponsGenerated: number;
+      couponsRedeemed: number;
+      totalCashbackIssued: number;
+      mostWonReward: number | null;
+    };
+  },
+
   // Image upload
   async uploadImage(file: File, folder = 'products'): Promise<string> {
     const form = new FormData();
