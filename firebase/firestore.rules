@@ -1,0 +1,235 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────
+// TSG eCart — Firestore Security Rules foundation (Phase 1)
+//
+// Scope for this phase: default-deny everything, provide the role/ownership
+// helper functions the audit (docs/firebase-migration-audit.md §31) commits
+// to, and leave clearly-labeled placeholder sections for each future
+// collection. No collection is opened for read/write yet — that happens
+// incrementally, one domain per migration phase, per the rollout plan in
+// the audit (§28).
+//
+// Authority model (see audit §21.2, §31):
+//   - Firebase custom claims (`request.auth.token.role`,
+//     `request.auth.token.permissions`) are the ONLY source of role
+//     authority. A document field named `role`, `isAdmin`, `admin`, etc.
+//     inside `userProfiles` or any other collection NEVER grants access —
+//     it exists only as a display/query mirror. Rules must never read a
+//     document's own fields to decide whether the *caller* is an admin.
+//   - There is no email-based admin check anywhere in these rules.
+// ─────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role/permission authority: custom claims on the caller's ID token
+    // ONLY. Never derived from a document field.
+    function callerRole() {
+      return isSignedIn() ? request.auth.token.get('role', null) : null;
+    }
+
+    function callerPermissions() {
+      return isSignedIn() ? request.auth.token.get('permissions', []) : [];
+    }
+
+    function isAdmin() {
+      return isSignedIn() && callerRole() == 'ADMIN';
+    }
+
+    function isStaff() {
+      return isSignedIn() && callerRole() == 'STAFF';
+    }
+
+    function isStaffOrAdmin() {
+      return isAdmin() || isStaff();
+    }
+
+    // ADMIN implicitly holds every permission (mirrors the backend's
+    // requirePermission() behavior — see audit §7).
+    function hasPermission(key) {
+      return isAdmin() || (isStaff() && key in callerPermissions());
+    }
+
+    // ── Default deny ──────────────────────────────────────────────────
+    // Every collection must be explicitly opened below. This top-level
+    // catch-all guarantees that any collection not yet migrated — or any
+    // typo'd/unknown path — is denied for both reads and writes, for both
+    // anonymous and authenticated callers.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── Placeholder sections for future collections ────────────────────
+    // Each block below is commented out intentionally. It documents the
+    // intended shape (matching docs/firebase-migration-audit.md §30) so the
+    // next phase only has to uncomment + verify with rules tests, not
+    // design from scratch. Nothing here is active until uncommented.
+
+    // match /userProfiles/{uid} {
+    //   allow read: if isOwner(uid) || hasPermission('customers.manage');
+    //   // Only non-sensitive self-service fields are writable by the
+    //   // owner; role/isActive/permissions remain Function-only (Admin SDK).
+    //   allow update: if isOwner(uid) &&
+    //     request.resource.data.diff(resource.data).affectedKeys()
+    //       .hasOnly(['name', 'phone', 'avatarUrl', 'updatedAt']);
+    //   allow create, delete: if false; // Function-only (auth-register / admin)
+    // }
+
+    // match /addresses/{addressId} {
+    //   allow read, write: if isSignedIn() &&
+    //     resource.data.userId == request.auth.uid;
+    //   allow create: if isSignedIn() &&
+    //     request.resource.data.userId == request.auth.uid;
+    // }
+
+    // match /categories/{categoryId} {
+    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
+    //   allow write: if hasPermission('products.manage');
+    // }
+
+    // match /brands/{brandId} {
+    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
+    //   allow write: if hasPermission('products.manage');
+    // }
+
+    // match /products/{productId} {
+    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
+    //   allow write: if hasPermission('products.manage');
+    // }
+
+    // match /productVariants/{variantId} {
+    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
+    //   allow write: if hasPermission('products.manage');
+    // }
+
+    // match /inventory/{variantId} {
+    //   allow read: if isStaffOrAdmin(); // customers get availableStock via a Function response, not a direct doc read
+    //   allow write: if false; // Function-only — every write is transactional
+    // }
+
+    // match /carts/{uid} {
+    //   allow read, write: if isOwner(uid);
+    //   match /items/{variantId} {
+    //     allow read, write: if isOwner(uid);
+    //   }
+    // }
+
+    // match /wishlists/{uid} {
+    //   match /items/{productId} {
+    //     allow read, write: if isOwner(uid);
+    //   }
+    // }
+
+    // match /deliveryZones/{zoneId} {
+    //   allow read: if true; // needed pre-auth for checkout-eligibility display
+    //   allow write: if hasPermission('delivery.manage');
+    // }
+
+    // match /serviceablePincodes/{pincode} {
+    //   allow read: if true;
+    //   allow write: if hasPermission('delivery.manage');
+    // }
+
+    // match /localities/{localityId} {
+    //   allow read: if true;
+    //   allow write: if hasPermission('delivery.manage');
+    // }
+
+    // match /coupons/{code} {
+    //   allow read: if false; // never listable — resolved only via Callable Function (coupons-apply)
+    //   allow write: if hasPermission('coupons.manage');
+    // }
+
+    // match /couponUsages/{usageId} {
+    //   allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+    //   allow write: if false; // order-creation Function only
+    // }
+
+    // match /rewardConfigs/{configId} {
+    //   allow read: if hasPermission('rewards.manage'); // public shape served via Function, not a direct read
+    //   allow write: if hasPermission('rewards.manage');
+    // }
+
+    // match /rewardCoupons/{code} {
+    //   allow read: if isSignedIn() && resource.data.userId == request.auth.uid || isStaffOrAdmin();
+    //   allow write: if false; // rewardSpin-spin / order-creation Functions only
+    // }
+
+    // match /orders/{orderId} {
+    //   allow read: if isSignedIn() &&
+    //     (resource.data.userId == request.auth.uid || hasPermission('orders.manage'));
+    //   allow write: if false; // Function-only — see audit §13/§27
+    //   match /items/{itemId} {
+    //     allow read: if isSignedIn() &&
+    //       (get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid
+    //         || hasPermission('orders.manage'));
+    //     allow write: if false;
+    //   }
+    //   match /statusHistory/{historyId} {
+    //     allow read: if isSignedIn() &&
+    //       (get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid
+    //         || hasPermission('orders.manage'));
+    //     allow write: if false;
+    //   }
+    // }
+
+    // match /paymentRecords/{orderId} {
+    //   allow read: if isSignedIn() &&
+    //     (resource.data.userId == request.auth.uid || hasPermission('orders.manage'));
+    //   allow write: if false; // Function-only — see audit §14
+    // }
+
+    // match /reviews/{reviewId} {
+    //   allow read: if resource.data.isApproved == true ||
+    //     (isSignedIn() && resource.data.userId == request.auth.uid) ||
+    //     hasPermission('reviews.manage');
+    //   allow write: if false; // Function-only — purchase verification can't be expressed in Rules
+    // }
+
+    // match /banners/{bannerId} {
+    //   allow read: if resource.data.isActive == true &&
+    //     request.time >= resource.data.startsAt && request.time <= resource.data.endsAt;
+    //   allow write: if hasPermission('banners.manage');
+    // }
+
+    // match /notifications/{uid}/items/{notificationId} {
+    //   allow read: if isOwner(uid);
+    //   allow update: if isOwner(uid) &&
+    //     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    //   allow create, delete: if false; // Function-only
+    // }
+
+    // match /walletTransactions/{uid}/ledger/{transactionId} {
+    //   allow read: if isOwner(uid) || hasPermission('customers.manage');
+    //   allow write: if false; // Function-only — balance computation must be transactional
+    // }
+
+    // match /referrals/{refereeId} {
+    //   allow read: if isSignedIn() &&
+    //     (resource.data.referrerId == request.auth.uid || refereeId == request.auth.uid) ||
+    //     isStaffOrAdmin();
+    //   allow write: if false; // Function-only
+    // }
+
+    // match /platformSettings/{key} {
+    //   allow read: if resource.data.get('isPublic', false) == true || hasPermission('settings.manage');
+    //   allow write: if hasPermission('settings.manage');
+    // }
+
+    // match /auditLogs/{logId} {
+    //   allow read: if isAdmin();
+    //   allow write: if false; // Function-only
+    // }
+  }
+}

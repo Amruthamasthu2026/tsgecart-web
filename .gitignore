@@ -42,3 +42,19 @@ Thumbs.db
 *.local
 .cache/
 dist-ssr/
+
+# Firebase — never commit real project config, credentials, or emulator state
+firebase/.firebaserc
+firebase/functions/lib/
+firebase/functions/.env
+firebase/functions/.env.*
+!firebase/functions/.env.example
+firebase/.emulator-data/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+*-debug.log
+.firebase/
+

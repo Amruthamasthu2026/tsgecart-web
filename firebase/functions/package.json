@@ -1,0 +1,38 @@
+{
+  "name": "@tsgecart/firebase-functions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TSG eCart — Firebase Cloud Functions (2nd gen). Built alongside the existing Express/Prisma backend during the Firebase migration; does not replace it yet.",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:rules": "firebase emulators:exec --only firestore --project=demo-tsgecart \"vitest run --config vitest.rules.config.ts\"",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "eslint": "^9.17.0",
+    "firebase-functions-test": "^3.4.0",
+    "firebase-tools": "^13.35.1",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
