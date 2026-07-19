@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { computeAvailable, computeIsLowStock, applyReservationDelta, MAX_QTY_PER_ITEM } from '../../src/inventory/inventory';
+import {
+  computeAvailable,
+  computeIsLowStock,
+  applyReservationDelta,
+  consumeStockForOrder,
+  restockInventory,
+  MAX_QTY_PER_ITEM,
+} from '../../src/inventory/inventory';
 import { InsufficientStockError } from '../../src/shared/errors';
 
 describe('computeAvailable', () => {
@@ -82,5 +89,60 @@ describe('applyReservationDelta', () => {
 describe('MAX_QTY_PER_ITEM', () => {
   it('matches the Express cart service cap exactly', () => {
     expect(MAX_QTY_PER_ITEM).toBe(20);
+  });
+});
+
+describe('consumeStockForOrder', () => {
+  it('decrements both stock and reserved by the same quantity (converts a hold into a sale)', () => {
+    const result = consumeStockForOrder({ stock: 20, reserved: 5, lowStockThreshold: 3 }, 5);
+    expect(result.newStock).toBe(15);
+    expect(result.newReserved).toBe(0);
+  });
+
+  it('leaves availableStock unchanged (item was already unavailable to others while reserved)', () => {
+    const before = computeAvailable(20, 5);
+    const result = consumeStockForOrder({ stock: 20, reserved: 5, lowStockThreshold: 3 }, 5);
+    expect(result.newAvailableStock).toBe(before);
+  });
+
+  it('throws InsufficientStockError if quantity exceeds real stock', () => {
+    expect(() => consumeStockForOrder({ stock: 3, reserved: 3, lowStockThreshold: 1 }, 5)).toThrow(
+      InsufficientStockError,
+    );
+  });
+
+  it('the InsufficientStockError carries the actual stock count, not availableStock', () => {
+    try {
+      consumeStockForOrder({ stock: 3, reserved: 3, lowStockThreshold: 1 }, 5);
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect((err as InsufficientStockError).details).toEqual({ available: 3 });
+    }
+  });
+
+  it('clamps reserved at 0 rather than going negative if quantity exceeds the pooled reservation', () => {
+    // e.g. inventory.reserved was already partially released by another
+    // process — consuming for this order must not push it negative.
+    const result = consumeStockForOrder({ stock: 20, reserved: 2, lowStockThreshold: 3 }, 5);
+    expect(result.newReserved).toBe(0);
+    expect(result.newStock).toBe(15);
+  });
+
+  it('recomputes isLowStock after consumption', () => {
+    const result = consumeStockForOrder({ stock: 10, reserved: 10, lowStockThreshold: 3 }, 8);
+    expect(result.newStock).toBe(2);
+    expect(result.newIsLowStock).toBe(true);
+  });
+});
+
+describe('restockInventory', () => {
+  it('increments stock by quantity, leaving reserved untouched', () => {
+    const result = restockInventory({ stock: 5, reserved: 2, lowStockThreshold: 3 }, 4);
+    expect(result.newStock).toBe(9);
+  });
+
+  it('recomputes isLowStock after restocking', () => {
+    const result = restockInventory({ stock: 0, reserved: 0, lowStockThreshold: 3 }, 10);
+    expect(result.newIsLowStock).toBe(false);
   });
 });

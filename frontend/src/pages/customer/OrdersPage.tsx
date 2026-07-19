@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ordersApi } from '../../features/orders/orders.api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
+import { firebaseOrdersApi, useFirestoreOrders } from '../../services/firebaseOrders';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -16,23 +19,55 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export function OrdersPage() {
+  const { isAuthenticated } = useAuth();
+  const { user: firebaseUser, isAuthenticated: isFirebaseAuthenticated } = useFirebaseAuth();
+  const signedIn = useFirestoreOrders ? isFirebaseAuthenticated : isAuthenticated;
+
   const { data, isLoading } = useQuery({
     queryKey: ['orders'],
     queryFn: () => ordersApi.list(1),
+    enabled: !useFirestoreOrders && isAuthenticated,
   });
+  const { data: firestoreOrders, isLoading: firestoreLoading } = useQuery({
+    queryKey: ['firebase-orders', firebaseUser?.uid],
+    queryFn: () => firebaseOrdersApi.listOrders(firebaseUser!.uid),
+    enabled: useFirestoreOrders && isFirebaseAuthenticated && !!firebaseUser,
+  });
+
+  const orders = useFirestoreOrders ? (firestoreOrders ?? []) : (data?.orders ?? []);
+  const loading = useFirestoreOrders ? firestoreLoading : isLoading;
+  const signInPath = useFirestoreOrders ? '/firebase-auth/login' : '/login';
+
+  if (!signedIn) {
+    return (
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="📦"
+          title="Sign in to view your orders"
+          message="You need to be signed in to see your order history."
+          action={<Link to={signInPath} className="btn-primary">Sign in</Link>}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container-app py-8">
       <Seo title="Your Orders" noindex />
       <PageHeader title="Your orders" subtitle="Track and manage your recent orders" />
+      {useFirestoreOrders && (
+        <p className="mt-2 rounded-2xl bg-brand-50 px-4 py-2 text-xs font-medium text-ink">
+          Loaded from Firestore (VITE_USE_FIRESTORE_ORDERS).
+        </p>
+      )}
 
-      {isLoading ? (
+      {loading ? (
         <div className="mt-6 space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="skeleton h-24 w-full" />
           ))}
         </div>
-      ) : !data || data.orders.length === 0 ? (
+      ) : orders.length === 0 ? (
         <EmptyState
           emoji="📦"
           title="No orders yet"
@@ -41,7 +76,7 @@ export function OrdersPage() {
         />
       ) : (
         <div className="mt-6 space-y-3">
-          {data.orders.map((order) => (
+          {orders.map((order) => (
             <Link
               key={order.id}
               to={`/orders/${order.id}`}

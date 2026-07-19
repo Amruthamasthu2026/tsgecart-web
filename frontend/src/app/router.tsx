@@ -173,6 +173,14 @@ export const router = createBrowserRouter([
       // logic ever ran. Existing JWT-authenticated users see no change.
       { path: 'wishlist', element: wrap(<WishlistPage />) },
       { path: 'account', element: wrap(<AccountPage />) },
+      // checkout/orders/orders/:id/rewards moved out of the JWT-only
+      // ProtectedRoute block below (Phase 5), same rationale as
+      // wishlist/account above (Phase 4): each page now supports EITHER
+      // auth system and enforces its own sign-in check internally.
+      { path: 'checkout', element: wrap(<CheckoutPage />) },
+      { path: 'orders', element: wrap(<OrdersPage />) },
+      { path: 'orders/:id', element: wrap(<OrderDetailPage />) },
+      { path: 'rewards', element: wrap(<RewardsPage />) },
       { path: 'about', element: wrap(<AboutPage />) },
       { path: 'contact', element: wrap(<ContactPage />) },
       { path: 'faq', element: wrap(<FaqPage />) },
@@ -182,10 +190,6 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'checkout', element: wrap(<CheckoutPage />) },
-          { path: 'orders', element: wrap(<OrdersPage />) },
-          { path: 'orders/:id', element: wrap(<OrderDetailPage />) },
-          { path: 'rewards', element: wrap(<RewardsPage />) },
           { path: 'coupons', element: wrap(<CouponsPage />) },
           { path: 'notifications', element: wrap(<NotificationsPage />) },
         ],

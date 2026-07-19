@@ -1,0 +1,12 @@
+{
+  "rewardConfigs": [
+    { "id": "tier-5", "cashbackAmount": "5.00", "probability": 40, "minOrder": "199.00", "expiryDays": 3, "isActive": true, "sortOrder": 0 },
+    { "id": "tier-10", "cashbackAmount": "10.00", "probability": 25, "minOrder": "299.00", "expiryDays": 3, "isActive": true, "sortOrder": 1 },
+    { "id": "tier-20", "cashbackAmount": "20.00", "probability": 15, "minOrder": "499.00", "expiryDays": 3, "isActive": true, "sortOrder": 2 },
+    { "id": "tier-30", "cashbackAmount": "30.00", "probability": 10, "minOrder": "699.00", "expiryDays": 3, "isActive": true, "sortOrder": 3 },
+    { "id": "tier-40", "cashbackAmount": "40.00", "probability": 6, "minOrder": "999.00", "expiryDays": 3, "isActive": true, "sortOrder": 4 },
+    { "id": "tier-50", "cashbackAmount": "50.00", "probability": 4, "minOrder": "1299.00", "expiryDays": 3, "isActive": true, "sortOrder": 5 }
+  ],
+  "rewardCoupons": [],
+  "legacySpinHistory": []
+}

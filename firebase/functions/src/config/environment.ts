@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { defineSecret } from 'firebase-functions/params';
 
 /**
  * Environment validation for Cloud Functions.
@@ -10,7 +11,20 @@ import { z } from 'zod';
  * be wired via `firebase functions:secrets:set` + `defineSecret()` in a
  * later phase, once the functions that need them exist. Nothing in this
  * file ever logs or re-exports a secret value.
+ *
+ * Phase 5 is that later phase for Razorpay: these `SecretParam`s are
+ * DECLARED here but never resolved at module load — `.value()` is only
+ * ever called inside a Function handler that has listed the secret in its
+ * own `onCall({ secrets: [...] })`/`onRequest({ secrets: [...] })` options
+ * (see payments/razorpay.function.ts), which is what makes the secret's
+ * plaintext value available to that invocation at all. In production these
+ * are set via `firebase functions:secrets:set RAZORPAY_KEY_SECRET` (Google
+ * Secret Manager); in the emulator they're read from
+ * `firebase/functions/.secret.local` (gitignored, never committed).
  */
+export const razorpayKeyIdSecret = defineSecret('RAZORPAY_KEY_ID');
+export const razorpayKeySecretSecret = defineSecret('RAZORPAY_KEY_SECRET');
+export const razorpayWebhookSecretSecret = defineSecret('RAZORPAY_WEBHOOK_SECRET');
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),

@@ -1,0 +1,33 @@
+{
+  "coupons": [
+    {
+      "code": "WELCOME10",
+      "description": "10% off your order, up to ₹100",
+      "type": "PERCENTAGE",
+      "value": "10.00",
+      "minOrder": "199.00",
+      "maxDiscount": "100.00",
+      "usageLimit": null,
+      "perUserLimit": 1,
+      "usedCount": 0,
+      "startsAt": "2026-01-01T00:00:00.000Z",
+      "expiresAt": null,
+      "isActive": true
+    },
+    {
+      "code": "FLAT50",
+      "description": "₹50 off orders above ₹499",
+      "type": "FLAT",
+      "value": "50.00",
+      "minOrder": "499.00",
+      "maxDiscount": null,
+      "usageLimit": 1000,
+      "perUserLimit": 2,
+      "usedCount": 0,
+      "startsAt": "2026-01-01T00:00:00.000Z",
+      "expiresAt": "2026-12-31T23:59:59.000Z",
+      "isActive": true
+    }
+  ],
+  "usages": []
+}

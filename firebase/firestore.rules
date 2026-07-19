@@ -170,64 +170,101 @@ service cloud.firestore {
       }
     }
 
-    // match /deliveryZones/{zoneId} {
-    //   allow read: if true; // needed pre-auth for checkout-eligibility display
-    //   allow write: if hasPermission('delivery.manage');
-    // }
+    // ── Delivery zones / serviceable pincodes (Phase 5) ─────────────────
+    // Public read (a pincode check happens pre-auth on the product/cart
+    // page) — matches the products/categories public-read split.
+    // delivery.manage may write; the order-creation transaction
+    // (orders/orders.function.ts) re-reads and re-validates both
+    // authoritatively via the Admin SDK regardless of what a client saw.
+    match /deliveryZones/{zoneId} {
+      allow read: if true;
+      allow write: if hasPermission('delivery.manage');
+    }
 
-    // match /serviceablePincodes/{pincode} {
-    //   allow read: if true;
-    //   allow write: if hasPermission('delivery.manage');
-    // }
+    match /serviceablePincodes/{pincode} {
+      allow read: if true;
+      allow write: if hasPermission('delivery.manage');
+    }
 
     // match /localities/{localityId} {
     //   allow read: if true;
     //   allow write: if hasPermission('delivery.manage');
     // }
 
-    // match /coupons/{code} {
-    //   allow read: if false; // never listable — resolved only via Callable Function (coupons-apply)
-    //   allow write: if hasPermission('coupons.manage');
-    // }
+    // ── Coupons (Phase 5) ────────────────────────────────────────────────
+    // Deviation from the Phase 1 draft's "never listable" sketch: STAFF/
+    // ADMIN with coupons.manage may read (needed for an admin coupon-list
+    // UI) — but an ordinary customer still cannot read this collection at
+    // all, since they hold no such permission; they only ever learn a
+    // coupon's discount by submitting a code string to the
+    // `validateCoupon` Callable, which resolves it server-side. Write
+    // stays admin/staff-only either way.
+    match /coupons/{code} {
+      allow read: if hasPermission('coupons.manage');
+      allow write: if hasPermission('coupons.manage');
+    }
 
-    // match /couponUsages/{usageId} {
-    //   allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-    //   allow write: if false; // order-creation Function only
-    // }
+    match /couponUsages/{usageId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false; // order-creation Function only
+    }
 
-    // match /rewardConfigs/{configId} {
-    //   allow read: if hasPermission('rewards.manage'); // public shape served via Function, not a direct read
-    //   allow write: if hasPermission('rewards.manage');
-    // }
+    // ── Reward-spin wheel (Phase 5) ──────────────────────────────────────
+    // rewardConfigs stays STAFF/ADMIN-read-only: `probability` must never
+    // reach a customer's browser (Rules cannot redact individual fields on
+    // a read), so customers only ever see the sanitized shape returned by
+    // the `getRewardWheel` Callable (rewards/rewards.function.ts).
+    match /rewardConfigs/{configId} {
+      allow read: if hasPermission('rewards.manage');
+      allow write: if hasPermission('rewards.manage');
+    }
 
-    // match /rewardCoupons/{code} {
-    //   allow read: if isSignedIn() && resource.data.userId == request.auth.uid || isStaffOrAdmin();
-    //   allow write: if false; // rewardSpin-spin / order-creation Functions only
-    // }
+    match /rewardCoupons/{code} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid || isStaffOrAdmin();
+      allow write: if false; // rewards/rewards.function.ts (spin) / order-creation Function only
+    }
 
-    // match /orders/{orderId} {
-    //   allow read: if isSignedIn() &&
-    //     (resource.data.userId == request.auth.uid || hasPermission('orders.manage'));
-    //   allow write: if false; // Function-only — see audit §13/§27
-    //   match /items/{itemId} {
-    //     allow read: if isSignedIn() &&
-    //       (get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid
-    //         || hasPermission('orders.manage'));
-    //     allow write: if false;
-    //   }
-    //   match /statusHistory/{historyId} {
-    //     allow read: if isSignedIn() &&
-    //       (get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid
-    //         || hasPermission('orders.manage'));
-    //     allow write: if false;
-    //   }
-    // }
+    // ── Orders (Phase 5) ──────────────────────────────────────────────────
+    // Write: false everywhere — the entire order-creation flow (stock
+    // consumption, coupon/reward redemption, cart clearing, payment record)
+    // is one Firestore transaction in orders/orders.function.ts using the
+    // Admin SDK, which bypasses Rules entirely; a client-side write could
+    // never be trusted to honor those cross-document invariants (audit
+    // §13/§22/§27).
+    match /orders/{orderId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || hasPermission('orders.manage'));
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if isSignedIn() &&
+          (get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid
+            || hasPermission('orders.manage'));
+        allow write: if false;
+      }
+      match /statusHistory/{historyId} {
+        allow read: if isSignedIn() &&
+          (get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid
+            || hasPermission('orders.manage'));
+        allow write: if false;
+      }
+    }
 
-    // match /paymentRecords/{orderId} {
-    //   allow read: if isSignedIn() &&
-    //     (resource.data.userId == request.auth.uid || hasPermission('orders.manage'));
-    //   allow write: if false; // Function-only — see audit §14
-    // }
+    match /paymentRecords/{orderId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || hasPermission('orders.manage'));
+      allow write: if false; // Function-only — see audit §14
+    }
+
+    // ── Order idempotency / webhook dedup markers (Phase 5) ─────────────
+    // Deliberately UNLISTED — the top-level default-deny catch-all above
+    // already denies both collections to every client for both read and
+    // write. Neither `orderIdempotency/{key}` (order-creation retry
+    // bookkeeping) nor `webhookEvents/{eventId}` (Razorpay webhook dedup)
+    // is ever meant to be visible to a browser; both are written and read
+    // exclusively by Functions via the Admin SDK. Listed here only so a
+    // future collection audit finds this decision documented rather than
+    // assuming the omission was accidental — see
+    // firestore.rules.test.ts's "unlisted Phase 5 collections" cases.
 
     // match /reviews/{reviewId} {
     //   allow read: if resource.data.isApproved == true ||

@@ -769,3 +769,94 @@ Where Phase 4 deviated from §30/§9/§17/§27 above, and why.
   no behavior change; a signed-into-neither visitor now sees an in-page
   "sign in" prompt instead of a hard redirect — same destination, arguably
   friendlier, and consistent across all three pages.
+
+## 36. Implementation Log — Phase 5
+
+Phase 5 migrated checkout, orders, order items/timeline, COD, Razorpay,
+global coupons, and the reward-spin wheel to Firestore/Functions, fully
+additive alongside the existing Express flows. Deviations and decisions
+recorded here, same convention as §35:
+
+- **Wallet redemption was NOT ported.** The Phase 5 instructions' own
+  checkout scope list ("selected address, COD, Razorpay, global coupon,
+  reward coupon, delivery fee, convenience fee, GST calculation, order
+  notes") does not mention wallet — a deliberate reading, not an
+  oversight. Wallet/referral (`WalletTransaction`, `Referral`) remain an
+  Express-only module; `RewardsPage`'s wallet and referral sections
+  continue to query the Express API regardless of
+  `VITE_USE_FIRESTORE_REWARDS`, gated on the JWT session specifically.
+  Consequently `FirestoreOrderDoc.totalPaise` is the FULL payable amount —
+  there is no further wallet-deduction stage the way Express's
+  `Order.total` has one.
+- **Only "System B" (RewardConfig/RewardCoupon) reward-spin was ported —
+  System A (`SpinWheelConfig`/`SpinHistory`, the legacy wallet-credit
+  wheel) was not.** §12's own audit already recommended this. Confirmed
+  by re-reading the actual current code paths for Phase 5: System A
+  credits the wallet directly and is never consulted by
+  `coupons.service.ts`'s `evaluate()`; System B is exactly what a coupon
+  code falls back to when it isn't a global coupon, and its seeded tiers
+  (₹5/10/20/30/40/50 at 40/25/15/10/6/4%) match the Phase 5 instructions'
+  own tier list verbatim. `backend/scripts/exportRewardsFromMysql.ts`
+  still exports System A's `SpinHistory` read-only (no data left behind),
+  but `importRewardsToFirestore.ts` deliberately ignores it on import.
+- **Order-time stock consumption is a real improvement over Express, not
+  a parity port.** Express's `orders.service.ts` blind-decrements
+  `Inventory.stock` with no floor guard — a genuine race window between
+  two concurrent last-unit checkouts. The Firestore port
+  (`consumeStockForOrder` in `inventory/inventory.ts`) converts a cart
+  line's already-held reservation into a sale (`stock -= qty; reserved -=
+  qty`, both inside the order-creation transaction) and throws
+  `InsufficientStockError` if `qty > stock` — negative stock is
+  structurally impossible.
+- **Duplicate-order prevention (idempotency) has no Express equivalent to
+  port.** Express's `generateOrderNumber()` has no collision-retry loop at
+  all, despite `orderNumber` being `@unique`. Since Firestore's design
+  (per §30) makes the order number the actual document ID, Phase 5 adds
+  both a collision-retry loop (`placeOrderTx`, up to 5 attempts) AND a
+  client-supplied `idempotencyKey` checked first inside the transaction
+  (`orderIdempotency/{key}` docs) — reusing the same key on retry returns
+  the original order instead of creating a duplicate. Neither exists in
+  Express; both are new, additive safety properties.
+- **Razorpay webhook idempotency is stricter than Express's.** The
+  existing Express webhook only guards `payment.captured` (via a `status:
+  {not:'PAID'}` `updateMany` filter) — `payment.failed` is naturally
+  idempotent, but `refund.processed` has NO guard at all (a redelivered
+  refund webhook would double-count `refundedAmount`). The Firestore port
+  adds one uniform guard for all three events: a `webhookEvents/{eventId}`
+  doc created via `.create()` (fails atomically if already processed),
+  keyed off `${event}:${entityId}` (the refund's own id for
+  `refund.processed`, so distinct partial refunds still each process
+  exactly once).
+- **Coupons collection read access deviates from the Phase 1 draft.** The
+  original placeholder sketch had `coupons/{code}`'s `allow read: if
+  false` (never listable to anyone). Phase 5 widens this to `hasPermission
+  ('coupons.manage')` so an admin coupon-list UI can query the collection
+  directly — an ordinary customer still cannot read it (they hold no such
+  permission), and only ever learns a discount via the `validateCoupon`
+  Callable, which resolves server-side. Documented here rather than left
+  as a silent rule change.
+- **No delivery-zone/pincode import script exists.** The Phase 5
+  migration-scripts list is explicit ("orders, order items, coupons,
+  coupon usages, reward configs, reward coupons, spin history, payment
+  records") and does not include delivery zones/pincodes — building one
+  was out of scope. `deliveryZones`/`serviceablePincodes` are
+  admin-seeded directly (Security Rules already permit STAFF/ADMIN with
+  `delivery.manage` to write both collections, matching the
+  products/categories pattern) — see the Phase 5 completion report for
+  how they were seeded for manual verification.
+- **`createRazorpayOrder` is scoped to an existing, owned order — there is
+  no bare "create a Razorpay order for an arbitrary amount" endpoint.**
+  Express's own Razorpay-order-creation code isn't a standalone endpoint
+  either (it's an internal step of `orders.service.ts`'s `create()`); the
+  Firestore port keeps that shape (`attachRazorpayOrder`, called from
+  inside `createOrder`) but additionally exposes `createRazorpayOrder` as
+  its own Callable for a **retry-payment** flow (`{orderId}` → re-attach
+  or return the existing Razorpay order for an order the caller already
+  owns) — never a client-supplied amount.
+- **Router auth-gating fix, again.** Same failure mode as §35: `checkout`,
+  `orders`, `orders/:id`, and `rewards` were still inside the JWT-only
+  `ProtectedRoute` from Phase 0's original scaffolding. Moved out to the
+  public route block, each page now enforcing its own sign-in check
+  (`useFirestoreCheckout`/`useFirestoreOrders`/`useFirestoreRewards`
+  deciding which auth system applies) — found and fixed the same way,
+  before it could reach manual verification as a bug.

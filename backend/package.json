@@ -20,7 +20,10 @@
     "seed": "tsx prisma/seed.ts",
     "export:firebase-users": "tsx scripts/exportUsersForFirebaseImport.ts",
     "export:firebase-products": "tsx scripts/exportProductsFromMysql.ts",
-    "export:firebase-variants": "tsx scripts/exportVariantsFromMysql.ts"
+    "export:firebase-variants": "tsx scripts/exportVariantsFromMysql.ts",
+    "export:firebase-orders": "tsx scripts/exportOrdersFromMysql.ts",
+    "export:firebase-coupons": "tsx scripts/exportCouponsFromMysql.ts",
+    "export:firebase-rewards": "tsx scripts/exportRewardsFromMysql.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

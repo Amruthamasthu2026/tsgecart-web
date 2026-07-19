@@ -62,3 +62,52 @@ export function applyReservationDelta(inventory: InventorySnapshot, delta: numbe
     newIsLowStock: computeIsLowStock(inventory.stock, newReserved, inventory.lowStockThreshold),
   };
 }
+
+export interface StockConsumption {
+  newStock: number;
+  newReserved: number;
+  newAvailableStock: number;
+  newIsLowStock: boolean;
+}
+
+/**
+ * Order-creation Phase 5: converts a cart line's already-held reservation
+ * into an actual sale — `stock` and `reserved` both decrease by `quantity`
+ * together, so `available = stock - reserved` is unchanged by this call
+ * (the item was already unavailable to others while reserved; now it's
+ * sold instead of merely held). The real guard is `quantity <= stock`
+ * (can't sell more than physically exists) — this is a deliberate
+ * improvement over the existing Express `orders.service.ts`, which
+ * decrements `Inventory.stock` with no floor check at all.
+ */
+export function consumeStockForOrder(inventory: InventorySnapshot, quantity: number): StockConsumption {
+  if (quantity > inventory.stock) {
+    throw new InsufficientStockError(inventory.stock);
+  }
+  const newStock = inventory.stock - quantity;
+  const newReserved = Math.max(0, inventory.reserved - quantity);
+  return {
+    newStock,
+    newReserved,
+    newAvailableStock: computeAvailable(newStock, newReserved),
+    newIsLowStock: computeIsLowStock(newStock, newReserved, inventory.lowStockThreshold),
+  };
+}
+
+export interface StockRestock {
+  newStock: number;
+  newIsLowStock: boolean;
+}
+
+/**
+ * Order-cancellation: returns sold units to `stock`. `reserved` is
+ * deliberately untouched — a cancelled order's items are no longer
+ * "reserved" by anyone, they were already sold and are now simply back in
+ * stock, matching the existing Express `cancel()`/`updateStatus()` restock
+ * behavior (`Inventory.stock: { increment: quantity } }`, no `reserved`
+ * interaction).
+ */
+export function restockInventory(inventory: InventorySnapshot, quantity: number): StockRestock {
+  const newStock = inventory.stock + quantity;
+  return { newStock, newIsLowStock: computeIsLowStock(newStock, inventory.reserved, inventory.lowStockThreshold) };
+}

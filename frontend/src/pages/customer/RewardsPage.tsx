@@ -1,14 +1,20 @@
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, useAnimation } from 'framer-motion';
 import { rewardsApi } from '../../features/rewards/rewards.api';
 import { spinApi, type SpinReward } from '../../features/rewards/spin.api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
+import { firebaseRewardsApi, useFirestoreRewards } from '../../services/firebaseRewards';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { Seo } from '../../components/Seo';
 import { RewardPopup } from '../../components/rewards/RewardPopup';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
 
 const STATUS_STYLES: Record<string, string> = {
   ACTIVE: 'bg-badge-organic/10 text-badge-organic',
@@ -25,11 +31,39 @@ export function RewardsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
   const myRewardsRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
+  const { user: firebaseUser, isAuthenticated: isFirebaseAuthenticated } = useFirebaseAuth();
+  const signedIn = useFirestoreRewards ? isFirebaseAuthenticated : isAuthenticated;
 
-  const { data: wallet } = useQuery({ queryKey: ['wallet'], queryFn: rewardsApi.wallet });
-  const { data: referral } = useQuery({ queryKey: ['referral'], queryFn: rewardsApi.referral });
-  const { data: wheel } = useQuery({ queryKey: ['spin-wheel'], queryFn: spinApi.wheel });
-  const { data: myRewards = [] } = useQuery({ queryKey: ['my-rewards'], queryFn: spinApi.myRewards });
+  // Wallet/referral are a separate module (System A / Referral) not part of
+  // this migration phase — always Express, gated on the JWT session
+  // specifically regardless of VITE_USE_FIRESTORE_REWARDS.
+  const { data: wallet } = useQuery({ queryKey: ['wallet'], queryFn: rewardsApi.wallet, enabled: isAuthenticated });
+  const { data: referral } = useQuery({ queryKey: ['referral'], queryFn: rewardsApi.referral, enabled: isAuthenticated });
+
+  const { data: expressWheel } = useQuery({
+    queryKey: ['spin-wheel'],
+    queryFn: spinApi.wheel,
+    enabled: !useFirestoreRewards && isAuthenticated,
+  });
+  const { data: expressRewards = [] } = useQuery({
+    queryKey: ['my-rewards'],
+    queryFn: spinApi.myRewards,
+    enabled: !useFirestoreRewards && isAuthenticated,
+  });
+  const { data: firestoreWheel } = useQuery({
+    queryKey: ['firebase-reward-wheel'],
+    queryFn: firebaseRewardsApi.wheel,
+    enabled: useFirestoreRewards && isFirebaseAuthenticated,
+  });
+  const { data: firestoreRewards = [] } = useQuery({
+    queryKey: ['firebase-my-rewards', firebaseUser?.uid],
+    queryFn: () => firebaseRewardsApi.myRewards(firebaseUser!.uid),
+    enabled: useFirestoreRewards && isFirebaseAuthenticated && !!firebaseUser,
+  });
+
+  const wheel = useFirestoreRewards ? firestoreWheel : expressWheel;
+  const myRewards = useFirestoreRewards ? firestoreRewards : expressRewards;
 
   const tiers = wheel?.tiers ?? [];
   const segAngle = tiers.length ? 360 / tiers.length : 0;
@@ -39,15 +73,15 @@ export function RewardsPage() {
     setSpinning(true);
     setSpinError(null);
     try {
-      const reward = await spinApi.spin();
+      const reward = useFirestoreRewards ? await firebaseRewardsApi.spin() : await spinApi.spin();
       const index = Math.max(0, tiers.findIndex((t) => t.cashbackAmount === reward.cashbackAmount));
       const target = 360 * 5 + (360 - (index * segAngle + segAngle / 2));
       await controls.start({ rotate: target, transition: { duration: 3.4, ease: [0.16, 1, 0.3, 1] } });
       setPopup(reward);
-      queryClient.invalidateQueries({ queryKey: ['my-rewards'] });
-      queryClient.invalidateQueries({ queryKey: ['spin-wheel'] });
+      queryClient.invalidateQueries({ queryKey: useFirestoreRewards ? ['firebase-my-rewards'] : ['my-rewards'] });
+      queryClient.invalidateQueries({ queryKey: useFirestoreRewards ? ['firebase-reward-wheel'] : ['spin-wheel'] });
     } catch (err) {
-      setSpinError(extractApiError(err));
+      setSpinError(useFirestoreRewards ? extractFirebaseError(err) : extractApiError(err));
     } finally {
       setSpinning(false);
     }
@@ -69,10 +103,32 @@ export function RewardsPage() {
     });
   };
 
+  if (!signedIn) {
+    return (
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="🎁"
+          title="Sign in to view rewards"
+          message="You need to be signed in to spin the wheel and see your reward coupons."
+          action={
+            <Link to={useFirestoreRewards ? '/firebase-auth/login' : '/login'} className="btn-primary">
+              Sign in
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="container-app py-8">
       <Seo title="Rewards & Referrals" noindex />
       <PageHeader title="Rewards" subtitle="Spin to win cashback coupons, refer friends and track your wallet" />
+      {useFirestoreRewards && (
+        <p className="mt-2 rounded-2xl bg-brand-50 px-4 py-2 text-xs font-medium text-ink">
+          Spin wheel loaded from Firestore (VITE_USE_FIRESTORE_REWARDS). Wallet &amp; referrals remain on the existing account.
+        </p>
+      )}
 
       {popup && (
         <RewardPopup

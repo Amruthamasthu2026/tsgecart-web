@@ -30,6 +30,17 @@ interface ImportMetaEnv {
   readonly VITE_USE_FIRESTORE_CART?: string;
   readonly VITE_USE_FIRESTORE_WISHLIST?: string;
   readonly VITE_USE_FIRESTORE_ADDRESSES?: string;
+  // Feature flags (Firebase migration Phase 5): when "true", checkout /
+  // orders / coupon-validation / the reward-spin wheel read and write
+  // Firestore (services/firebaseOrders.ts, firebaseCoupons.ts,
+  // firebaseRewards.ts) instead of the existing Express APIs. Each flag is
+  // independent. Unset/false (the default) keeps that feature on the
+  // existing Express API, unchanged.
+  readonly VITE_USE_FIRESTORE_CHECKOUT?: string;
+  readonly VITE_USE_FIRESTORE_ORDERS?: string;
+  readonly VITE_USE_FIRESTORE_COUPONS?: string;
+  readonly VITE_USE_FIRESTORE_REWARDS?: string;
+  readonly VITE_USE_FIREBASE_RAZORPAY?: string;
 }
 
 interface ImportMeta {

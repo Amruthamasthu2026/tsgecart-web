@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
 import { cartApi, type CheckoutSummary } from '../../features/cart/cart.api';
 import { firebaseCartApi, useFirestoreCart, toLegacyCartSummary } from '../../services/firebaseCart';
+import { firebaseOrdersApi, useFirestoreCheckout } from '../../services/firebaseOrders';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -26,15 +27,27 @@ export function CartPage() {
   const [checkout, setCheckout] = useState<CheckoutSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Checkout (Phase 5) needs BOTH the cart and the pincode/coupon preview on
+  // Firestore — `useFirestoreCart` alone (Phase 4) only means the cart
+  // itself is Firestore-backed, not that checkout has been migrated yet.
+  const firestoreCheckoutReady = useFirestoreCart && useFirestoreCheckout;
+
   const summaryMutation = useMutation({
-    mutationFn: () => cartApi.checkoutSummary(pincode, coupon || undefined),
+    mutationFn: () => {
+      if (firestoreCheckoutReady) {
+        const legacyCart = firestoreCartRaw ? toLegacyCartSummary(firestoreCartRaw) : undefined;
+        if (!legacyCart) throw new Error('Cart not loaded yet');
+        return firebaseOrdersApi.checkPincodeServiceability(pincode, legacyCart, coupon || undefined);
+      }
+      return cartApi.checkoutSummary(pincode, coupon || undefined);
+    },
     onSuccess: (data) => {
       setCheckout(data);
       setError(null);
     },
     onError: (err) => {
       setCheckout(null);
-      setError(extractApiError(err));
+      setError(firestoreCheckoutReady ? extractFirebaseError(err) : extractApiError(err));
     },
   });
 
@@ -180,7 +193,7 @@ export function CartPage() {
           <div className="card p-5">
             <h2 className="text-lg font-bold">Delivery</h2>
             <p className="mt-1 text-xs text-ink-muted">
-              {useFirestoreCart
+              {useFirestoreCart && !firestoreCheckoutReady
                 ? 'Delivery/coupon checking is not migrated to Firestore yet.'
                 : 'We deliver within Hyderabad only.'}
             </p>
@@ -189,7 +202,7 @@ export function CartPage() {
                 value={pincode}
                 onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="Enter pincode"
-                disabled={useFirestoreCart}
+                disabled={useFirestoreCart && !firestoreCheckoutReady}
                 className="w-full rounded-xl border border-black/10 px-4 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 disabled:bg-slate-50 disabled:text-ink-muted"
               />
             </div>
@@ -197,7 +210,7 @@ export function CartPage() {
               value={coupon}
               onChange={(e) => setCoupon(e.target.value.toUpperCase())}
               placeholder="Coupon code (optional)"
-              disabled={useFirestoreCart}
+              disabled={useFirestoreCart && !firestoreCheckoutReady}
               className="mt-2 w-full rounded-xl border border-black/10 px-4 py-2 text-sm uppercase outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 disabled:bg-slate-50 disabled:text-ink-muted"
             />
             <Button
@@ -205,7 +218,7 @@ export function CartPage() {
               className="mt-3"
               variant="dark"
               isLoading={summaryMutation.isPending}
-              disabled={useFirestoreCart || pincode.length !== 6}
+              disabled={(useFirestoreCart && !firestoreCheckoutReady) || pincode.length !== 6}
               onClick={() => summaryMutation.mutate()}
             >
               Check & apply
@@ -253,7 +266,7 @@ export function CartPage() {
             <Button
               fullWidth
               className="mt-4"
-              disabled={useFirestoreCart || !checkout?.serviceable}
+              disabled={(useFirestoreCart && !firestoreCheckoutReady) || !checkout?.serviceable}
               onClick={() =>
                 navigate('/checkout', {
                   state: { pincode, coupon: checkout?.couponCode },
@@ -262,9 +275,9 @@ export function CartPage() {
             >
               Proceed to checkout
             </Button>
-            {useFirestoreCart ? (
+            {useFirestoreCart && !firestoreCheckoutReady ? (
               <p className="mt-2 text-center text-xs text-ink-muted">
-                Checkout for Firestore carts is a later migration phase
+                Checkout for Firestore carts requires VITE_USE_FIRESTORE_CHECKOUT
               </p>
             ) : (
               !checkout?.serviceable && (

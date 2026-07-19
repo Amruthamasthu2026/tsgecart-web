@@ -424,6 +424,235 @@ describe('firestore.rules — addresses (Phase 4, real committed rules file)', (
   });
 });
 
+describe('firestore.rules — delivery zones / serviceable pincodes (Phase 5, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await db.doc('deliveryZones/zone-hyd').set({ name: 'Hyderabad Core', deliveryChargePaise: 3000, isActive: true });
+      await db.doc('serviceablePincodes/500001').set({ city: 'Hyderabad', zoneId: 'zone-hyd', isServiceable: true });
+    });
+  });
+
+  it('an anonymous caller can read a delivery zone (pre-auth checkout-eligibility display)', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertSucceeds(anon.firestore().doc('deliveryZones/zone-hyd').get());
+  });
+
+  it('an anonymous caller can read a serviceable pincode', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertSucceeds(anon.firestore().doc('serviceablePincodes/500001').get());
+  });
+
+  it('a signed-in CUSTOMER cannot write a delivery zone', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('deliveryZones/zone-hyd').update({ deliveryChargePaise: 0 }));
+  });
+
+  it('STAFF WITH delivery.manage can write a serviceable pincode (newly added pincodes work immediately)', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['delivery.manage'] });
+    await assertSucceeds(staff.firestore().doc('serviceablePincodes/500081').set({ city: 'Hyderabad', zoneId: 'zone-hyd', isServiceable: true }));
+  });
+
+  it('STAFF WITHOUT delivery.manage cannot write a serviceable pincode', async () => {
+    const staff = mainEnv.authenticatedContext('staff-2', { role: 'STAFF', permissions: ['products.manage'] });
+    await assertFails(staff.firestore().doc('serviceablePincodes/500082').set({ city: 'Hyderabad', zoneId: 'zone-hyd', isServiceable: true }));
+  });
+});
+
+describe('firestore.rules — coupons (Phase 5, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await db.doc('coupons/SAVE10').set({ type: 'PERCENTAGE', value: 10, isActive: true });
+      await db.doc('couponUsages/usage-1').set({ couponCode: 'SAVE10', userId: 'user-1', orderId: 'TSG-1' });
+    });
+  });
+
+  it('an anonymous caller cannot read a coupon (never listable to a customer)', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('coupons/SAVE10').get());
+  });
+
+  it('a signed-in CUSTOMER cannot read a coupon directly — resolved only via the validateCoupon Callable', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('coupons/SAVE10').get());
+  });
+
+  it('STAFF WITH coupons.manage can read and write a coupon (admin coupon-list UI)', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['coupons.manage'] });
+    const db = staff.firestore();
+    await assertSucceeds(db.doc('coupons/SAVE10').get());
+    await assertSucceeds(db.doc('coupons/NEW20').set({ type: 'FLAT', value: 2000, isActive: true }));
+  });
+
+  it('STAFF WITHOUT coupons.manage cannot read a coupon', async () => {
+    const staff = mainEnv.authenticatedContext('staff-2', { role: 'STAFF', permissions: ['products.manage'] });
+    await assertFails(staff.firestore().doc('coupons/SAVE10').get());
+  });
+
+  it('the owner can read their own couponUsages row', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('couponUsages/usage-1').get());
+  });
+
+  it('a different user cannot read someone else\'s couponUsages row', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('couponUsages/usage-1').get());
+  });
+
+  it('NO ONE can write couponUsages directly — not even an ADMIN — it is order-creation Function-only', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertFails(admin.firestore().doc('couponUsages/usage-2').set({ couponCode: 'SAVE10', userId: 'admin-1', orderId: 'TSG-2' }));
+  });
+});
+
+describe('firestore.rules — reward-spin wheel (Phase 5, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await db.doc('rewardConfigs/tier-5').set({ cashbackAmountPaise: 500, probability: 40, isActive: true });
+      await db.doc('rewardCoupons/SPIN-ABCD1234').set({ userId: 'user-1', cashbackAmountPaise: 500, status: 'ACTIVE' });
+    });
+  });
+
+  it('a signed-in CUSTOMER cannot read rewardConfigs directly (probability must never reach a customer)', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('rewardConfigs/tier-5').get());
+  });
+
+  it('STAFF WITH rewards.manage can read and write rewardConfigs', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['rewards.manage'] });
+    const db = staff.firestore();
+    await assertSucceeds(db.doc('rewardConfigs/tier-5').get());
+    await assertSucceeds(db.doc('rewardConfigs/tier-10').set({ cashbackAmountPaise: 1000, probability: 25, isActive: true }));
+  });
+
+  it('the owner can read their own reward coupon', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('rewardCoupons/SPIN-ABCD1234').get());
+  });
+
+  it('STAFF/ADMIN can read any reward coupon', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('rewardCoupons/SPIN-ABCD1234').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s reward coupon', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('rewardCoupons/SPIN-ABCD1234').get());
+  });
+
+  it('NO ONE can write a reward coupon directly — not even the owner — spin/redemption is Function-only', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertFails(owner.firestore().doc('rewardCoupons/SPIN-ABCD1234').update({ status: 'REDEEMED' }));
+  });
+});
+
+describe('firestore.rules — orders / order items / status history / payment records (Phase 5, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await db.doc('orders/TSG-260719-00000001').set({ userId: 'user-1', status: 'CONFIRMED' });
+      await db.doc('orders/TSG-260719-00000001/items/item-1').set({ variantId: 'ALM-500', quantity: 2 });
+      await db.doc('orders/TSG-260719-00000001/statusHistory/hist-1').set({ status: 'CONFIRMED', note: 'Order placed' });
+      await db.doc('paymentRecords/TSG-260719-00000001').set({ userId: 'user-1', method: 'COD', status: 'PENDING' });
+    });
+  });
+
+  it('the order owner can read their own order', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('orders/TSG-260719-00000001').get());
+  });
+
+  it('the order owner can read their own order items', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('orders/TSG-260719-00000001/items/item-1').get());
+  });
+
+  it('the order owner can read their own order status history (order timeline)', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('orders/TSG-260719-00000001/statusHistory/hist-1').get());
+  });
+
+  it('the order owner can read their own payment record (payment status)', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('paymentRecords/TSG-260719-00000001').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s order', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('orders/TSG-260719-00000001').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s order items', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('orders/TSG-260719-00000001/items/item-1').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s payment record', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('paymentRecords/TSG-260719-00000001').get());
+  });
+
+  it('an anonymous caller cannot read any order, item, timeline entry, or payment record', async () => {
+    const anonDb = mainEnv.unauthenticatedContext().firestore();
+    await assertFails(anonDb.doc('orders/TSG-260719-00000001').get());
+    await assertFails(anonDb.doc('orders/TSG-260719-00000001/items/item-1').get());
+    await assertFails(anonDb.doc('orders/TSG-260719-00000001/statusHistory/hist-1').get());
+    await assertFails(anonDb.doc('paymentRecords/TSG-260719-00000001').get());
+  });
+
+  it('STAFF/ADMIN with orders.manage can read any order, items, timeline, and payment record', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    const db = admin.firestore();
+    await assertSucceeds(db.doc('orders/TSG-260719-00000001').get());
+    await assertSucceeds(db.doc('orders/TSG-260719-00000001/items/item-1').get());
+    await assertSucceeds(db.doc('orders/TSG-260719-00000001/statusHistory/hist-1').get());
+    await assertSucceeds(db.doc('paymentRecords/TSG-260719-00000001').get());
+  });
+
+  it('STAFF WITHOUT orders.manage cannot read someone else\'s order', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['products.manage'] });
+    await assertFails(staff.firestore().doc('orders/TSG-260719-00000001').get());
+  });
+
+  it('NO ONE can write an order directly — not even the owner, not even an ADMIN — order creation is Function-only', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertFails(owner.firestore().doc('orders/TSG-260719-00000001').update({ status: 'DELIVERED' }));
+    await assertFails(admin.firestore().doc('orders/TSG-260719-00000001').update({ status: 'DELIVERED' }));
+  });
+
+  it('NO ONE can write order items, status history, or payment records directly', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    const db = admin.firestore();
+    await assertFails(db.doc('orders/TSG-260719-00000001/items/item-1').update({ quantity: 99 }));
+    await assertFails(db.doc('orders/TSG-260719-00000001/statusHistory/hist-2').set({ status: 'CANCELLED' }));
+    await assertFails(db.doc('paymentRecords/TSG-260719-00000001').update({ status: 'PAID' }));
+  });
+
+  it('a stranger cannot fake ownership of a new order doc — write is Function-only regardless of the userId field', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('orders/TSG-FAKE-00000002').set({ userId: 'user-2', status: 'CONFIRMED' }));
+  });
+});
+
+describe('firestore.rules — Phase 5 internal-only collections (unlisted, no rule needed)', () => {
+  it('orderIdempotency is denied to everyone, including an ADMIN — Function/Admin-SDK-only bookkeeping', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertFails(admin.firestore().doc('orderIdempotency/idem-key-1').get());
+    await assertFails(owner.firestore().doc('orderIdempotency/idem-key-1').set({ orderId: 'TSG-1' }));
+  });
+
+  it('webhookEvents is denied to everyone, including an ADMIN — Function/Admin-SDK-only Razorpay webhook dedup', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    const db = admin.firestore();
+    await assertFails(db.doc('webhookEvents/payment.captured:pay_1').get());
+    await assertFails(db.doc('webhookEvents/payment.captured:pay_1').set({ processedAt: new Date() }));
+  });
+});
+
 describe('firestore.rules helper functions (isAdmin/isOwner) against real custom claims', () => {
   beforeEach(async () => {
     await helperEnv.withSecurityRulesDisabled(async (adminCtx) => {

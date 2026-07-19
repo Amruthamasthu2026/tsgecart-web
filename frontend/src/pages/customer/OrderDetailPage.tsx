@@ -2,6 +2,9 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ordersApi } from '../../features/orders/orders.api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
+import { firebaseOrdersApi, useFirestoreOrders } from '../../services/firebaseOrders';
 import { OrderTimeline } from '../../components/order/OrderTimeline';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
@@ -16,17 +19,28 @@ export function OrderDetailPage() {
   const location = useLocation();
   const justPlaced = (location.state as { justPlaced?: boolean })?.justPlaced;
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
+  const { isAuthenticated: isFirebaseAuthenticated } = useFirebaseAuth();
+  const signedIn = useFirestoreOrders ? isFirebaseAuthenticated : isAuthenticated;
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', id],
-    queryFn: () => ordersApi.get(id),
+    queryFn: () => (useFirestoreOrders ? firebaseOrdersApi.getOrder(id) : ordersApi.get(id)),
+    enabled: signedIn,
   });
 
   const cancelMutation = useMutation({
-    mutationFn: () => ordersApi.cancel(id),
+    mutationFn: async () => {
+      if (useFirestoreOrders) {
+        await firebaseOrdersApi.cancelOrder(id);
+        return firebaseOrdersApi.getOrder(id);
+      }
+      return ordersApi.cancel(id);
+    },
     onSuccess: (updated) => {
       queryClient.setQueryData(['order', id], updated);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['firebase-orders'] });
     },
   });
 
@@ -39,6 +53,23 @@ export function OrderDetailPage() {
     win.focus();
     win.print();
   };
+
+  if (!signedIn) {
+    return (
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="📦"
+          title="Sign in to view this order"
+          message="You need to be signed in to see order details."
+          action={
+            <Link to={useFirestoreOrders ? '/firebase-auth/login' : '/login'} className="btn-primary">
+              Sign in
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -92,9 +123,11 @@ export function OrderDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={downloadInvoice}>
-            Invoice
-          </Button>
+          {!useFirestoreOrders && (
+            <Button variant="ghost" onClick={downloadInvoice}>
+              Invoice
+            </Button>
+          )}
           {CANCELLABLE.includes(order.status) && (
             <Button
               variant="ghost"

@@ -21,10 +21,17 @@ design that this foundation is built against.
   reservation, a per-user Firestore cart/wishlist/addresses, and
   feature-flagged frontend wiring for the product-detail, cart, wishlist,
   and account pages — see "Cart, inventory & addresses (Phase 4)" below.
+- **Phase 5 (Checkout, orders, coupons, rewards, Razorpay):** atomic
+  order-creation Cloud Function (stock consumption, coupon/reward
+  redemption, cart clearing, payment record — one Firestore transaction),
+  `orders`/`paymentRecords`/`coupons`/`couponUsages`/`rewardConfigs`/
+  `rewardCoupons` collections, order cancellation and admin status
+  transitions, the reward-spin wheel, and Razorpay
+  create/verify/webhook/refund — see "Checkout, orders, coupons & rewards
+  (Phase 5)" below.
 
-No orders, payments, rewards, or coupons data has been migrated. The
-existing backend keeps serving 100% of production traffic; nothing here is
-live in production yet.
+No admin-dashboard analytics has been migrated. The existing backend keeps
+serving 100% of production traffic; nothing here is live in production yet.
 
 ---
 
@@ -419,3 +426,68 @@ and `/account` moved out of the JWT-only `ProtectedRoute` in
 itself — see audit §35) — an already-JWT-authenticated user sees no
 behavior change; a Firebase-only-authenticated user can now actually reach
 these pages instead of being redirected to the old `/login`.
+
+## Checkout, orders, coupons & rewards (Phase 5)
+
+**Order creation** (`firebase/functions/src/orders/orders.function.ts`,
+`createOrder` Callable) is one Firestore transaction that re-reads and
+re-validates everything server-side — cart, address, every variant +
+inventory doc, delivery zone/pincode, coupon or reward coupon — and never
+trusts a client-supplied price, stock, discount, or total. It:
+1. Checks an `idempotencyKey` first (`orderIdempotency/{key}`) — replaying
+   the same checkout attempt returns the original order instead of
+   creating a duplicate.
+2. Generates the order number (`orders/{orderId}` — the doc ID IS the
+   human-readable order number, e.g. `TSG-260719-00000001`, retried up to
+   5 times on the vanishingly-unlikely event of a collision).
+3. Validates every cart line (variant/product active, real stock via
+   `consumeStockForOrder` — throws rather than allowing negative stock).
+4. Evaluates a coupon code against `coupons/{code}` (global) or falls back
+   to `rewardCoupons/{code}` (reward), exactly matching the existing
+   Express `coupons.service.ts`'s fallback order.
+5. Computes the delivery charge from `deliveryZones`/`serviceablePincodes`.
+6. Writes the order + `items`/`statusHistory` subcollections +
+   `paymentRecords/{orderId}` + consumes inventory + records coupon usage
+   or marks the reward coupon `REDEEMED` + clears the cart — all together,
+   or none of it (transaction failure rolls back everything, including the
+   idempotency marker, so a genuinely failed attempt can be retried clean).
+
+**Razorpay** (`payments/razorpay.function.ts`): `createOrder` attaches a
+Razorpay order after the local order commits (mirroring Express's
+non-transactional post-commit step); `createRazorpayOrder` is a separate
+Callable for retrying payment on an existing, owned, unpaid order (never a
+bare "create an order for any amount" endpoint). `verifyRazorpayPayment`
+checks the checkout-popup signature; `razorpayWebhook` is an `onRequest`
+HTTPS Function (not Callable — it needs the raw signed POST body Razorpay
+sends, which a Callable's envelope can't preserve), idempotent via a
+`webhookEvents/{event}:{entityId}` dedup doc created with `.create()`.
+Secrets (`RAZORPAY_KEY_ID`/`_KEY_SECRET`/`_WEBHOOK_SECRET`) are wired via
+`defineSecret()` in `config/environment.ts` — resolved only inside a
+Function handler that lists them, never at module load.
+
+**Rewards**: only the coupon-issuing wheel (`rewardConfigs`/
+`rewardCoupons`) is ported — the legacy wallet-credit wheel is not (see
+audit §36 for why). `getRewardWheel` strips `probability` before returning
+tiers to a customer (Security Rules alone can't redact one field on a
+read); `spinReward` does the 24h-cooldown check, weighted selection, and
+code generation inside one transaction.
+
+**Migration scripts** (not executed, same rule as every other phase):
+- `backend/scripts/exportOrdersFromMysql.ts`,
+  `exportCouponsFromMysql.ts`, `exportRewardsFromMysql.ts` — read-only
+  MySQL exports (orders+items+payments+timeline; coupons+usages;
+  rewardConfigs+rewardCoupons+legacy spinHistory).
+- `firebase/functions/scripts/importOrdersToFirestore.ts`,
+  `importCouponsToFirestore.ts`, `importRewardsToFirestore.ts` — dry-run
+  by default; `--execute` performs the real Firestore writes; idempotent
+  (deterministic doc IDs throughout).
+
+**Frontend**: `services/firebaseOrders.ts` (checkout + orders +
+pincode/coupon preview), `firebaseCoupons.ts`, `firebaseRewards.ts` — new,
+alongside the existing `features/orders/orders.api.ts`,
+`features/coupons/coupons.api.ts`, `features/rewards/spin.api.ts` (all
+untouched). `VITE_USE_FIRESTORE_CHECKOUT` / `VITE_USE_FIRESTORE_ORDERS` /
+`VITE_USE_FIRESTORE_COUPONS` / `VITE_USE_FIRESTORE_REWARDS` /
+`VITE_USE_FIREBASE_RAZORPAY` are independent flags. `/checkout`, `/orders`,
+`/orders/:id`, and `/rewards` moved out of the JWT-only `ProtectedRoute`
+(same fix as Phase 4's — see audit §36).
