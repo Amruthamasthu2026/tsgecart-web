@@ -227,6 +227,203 @@ describe('firestore.rules — products/categories (Phase 3, real committed rules
   });
 });
 
+describe('firestore.rules — productVariants (Phase 4, real committed rules file)', () => {
+  const activeVariant = { productId: 'fresh-almonds', unitLabel: '500 g', isActive: true, isDefault: true };
+  const inactiveVariant = { ...activeVariant, isActive: false };
+
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await Promise.all([
+        db.doc('productVariants/ALM-500').set(activeVariant),
+        db.doc('productVariants/DISCONTINUED-SKU').set(inactiveVariant),
+      ]);
+    });
+  });
+
+  it('an anonymous caller can read an active variant', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertSucceeds(anon.firestore().doc('productVariants/ALM-500').get());
+  });
+
+  it('an anonymous caller cannot read an inactive variant', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('productVariants/DISCONTINUED-SKU').get());
+  });
+
+  it('STAFF/ADMIN can read an inactive variant', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('productVariants/DISCONTINUED-SKU').get());
+  });
+
+  it('an ADMIN caller can write a variant', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('productVariants/NEW-SKU').set({ ...activeVariant }));
+  });
+
+  it('a CUSTOMER cannot write a variant', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('productVariants/ALM-500').update({ isFeatured: true }));
+  });
+});
+
+describe('firestore.rules — inventory (Phase 4, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('inventory/ALM-500').set({ stock: 20, reserved: 3, lowStockThreshold: 5 });
+    });
+  });
+
+  it('an anonymous caller cannot read inventory', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('inventory/ALM-500').get());
+  });
+
+  it('a signed-in CUSTOMER cannot read inventory', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('inventory/ALM-500').get());
+  });
+
+  it('STAFF WITHOUT inventory.manage cannot read inventory', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['products.manage'] });
+    await assertFails(staff.firestore().doc('inventory/ALM-500').get());
+  });
+
+  it('STAFF WITH inventory.manage can read inventory', async () => {
+    const staff = mainEnv.authenticatedContext('staff-2', { role: 'STAFF', permissions: ['inventory.manage'] });
+    await assertSucceeds(staff.firestore().doc('inventory/ALM-500').get());
+  });
+
+  it('an ADMIN can read inventory (implicitly holds every permission)', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('inventory/ALM-500').get());
+  });
+
+  it('NO ONE can write inventory directly — not even an ADMIN — it is Function-only', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertFails(admin.firestore().doc('inventory/ALM-500').update({ stock: 999 }));
+  });
+});
+
+describe('firestore.rules — carts (Phase 4, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      const db = adminCtx.firestore();
+      await db.doc('carts/user-1').set({ updatedAt: new Date() });
+      await db.doc('carts/user-1/items/ALM-500').set({ variantId: 'ALM-500', quantity: 2 });
+    });
+  });
+
+  it('the cart owner can read their own cart', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('carts/user-1').get());
+  });
+
+  it('the cart owner can read their own cart items', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('carts/user-1/items/ALM-500').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s cart', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('carts/user-1').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s cart items', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('carts/user-1/items/ALM-500').get());
+  });
+
+  it('an anonymous caller cannot read any cart', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('carts/user-1').get());
+  });
+
+  it('even the cart owner cannot write their cart directly — it is Function-only', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertFails(owner.firestore().doc('carts/user-1/items/ALM-500').update({ quantity: 99 }));
+  });
+
+  it('even an ADMIN cannot write someone else\'s cart directly', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertFails(admin.firestore().doc('carts/user-1/items/ALM-500').update({ quantity: 99 }));
+  });
+});
+
+describe('firestore.rules — wishlists (Phase 4, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('wishlists/user-1/items/fresh-almonds').set({ addedAt: new Date() });
+    });
+  });
+
+  it('the owner can read their own wishlist item', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('wishlists/user-1/items/fresh-almonds').get());
+  });
+
+  it('the owner can add a wishlist item directly (no Function required)', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('wishlists/user-1/items/cashew-nuts').set({ addedAt: new Date() }));
+  });
+
+  it('the owner can remove a wishlist item directly', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('wishlists/user-1/items/fresh-almonds').delete());
+  });
+
+  it('a different signed-in user cannot read someone else\'s wishlist', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('wishlists/user-1/items/fresh-almonds').get());
+  });
+
+  it('a different signed-in user cannot write to someone else\'s wishlist', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('wishlists/user-1/items/hacked').set({ addedAt: new Date() }));
+  });
+
+  it('an anonymous caller cannot read or write any wishlist', async () => {
+    const anonDb = mainEnv.unauthenticatedContext().firestore();
+    await assertFails(anonDb.doc('wishlists/user-1/items/fresh-almonds').get());
+    await assertFails(anonDb.doc('wishlists/user-1/items/anonymous-add').set({ addedAt: new Date() }));
+  });
+});
+
+describe('firestore.rules — addresses (Phase 4, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('addresses/addr-1').set({ userId: 'user-1', line1: '123 Main St' });
+    });
+  });
+
+  it('the owner can read their own address', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('addresses/addr-1').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s address', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('addresses/addr-1').get());
+  });
+
+  it('an anonymous caller cannot read any address', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('addresses/addr-1').get());
+  });
+
+  it('even the owner cannot write their address directly — it is Function-only (default-exclusivity invariant)', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertFails(owner.firestore().doc('addresses/addr-1').update({ isDefault: true }));
+  });
+
+  it('a stranger cannot fake ownership by writing their own uid onto a new address doc — write is Function-only regardless', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(
+      stranger.firestore().doc('addresses/addr-2').set({ userId: 'user-2', line1: 'Fake Address' }),
+    );
+  });
+});
+
 describe('firestore.rules helper functions (isAdmin/isOwner) against real custom claims', () => {
   beforeEach(async () => {
     await helperEnv.withSecurityRulesDisabled(async (adminCtx) => {

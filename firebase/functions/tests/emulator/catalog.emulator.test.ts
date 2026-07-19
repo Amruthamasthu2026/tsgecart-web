@@ -134,7 +134,11 @@ describe('getCategories — anonymous, no auth required', () => {
 describe('getProducts — anonymous, no auth required', () => {
   it('lists only active products with correct pagination meta', async () => {
     const getProducts = httpsCallable<unknown, GetProductsResult>(functions, 'getProducts');
-    const result = await getProducts({ limit: 10 });
+    // Scoped to categorySlug: 'dry-fruits' so the exact-count assertion
+    // below is robust to other emulator test files (e.g.
+    // cart.emulator.test.ts) writing unrelated active products elsewhere
+    // in the same shared `demo-tsgecart` Firestore emulator project.
+    const result = await getProducts({ categorySlug: 'dry-fruits', limit: 10 });
     const slugs = result.data.products.map((p) => p.slug);
     expect(slugs).toEqual(expect.arrayContaining(['fresh-almonds', 'cashew-nuts', 'walnut-halves']));
     expect(slugs).not.toContain('discontinued-raisins');
@@ -157,8 +161,9 @@ describe('getProducts — anonymous, no auth required', () => {
 
   it('paginates correctly with limit + page', async () => {
     const getProducts = httpsCallable<unknown, GetProductsResult>(functions, 'getProducts');
-    const page1 = await getProducts({ limit: 2, page: 1, sort: 'name', order: 'asc' });
-    const page2 = await getProducts({ limit: 2, page: 2, sort: 'name', order: 'asc' });
+    // Scoped to categorySlug for the same reason as the test above.
+    const page1 = await getProducts({ categorySlug: 'dry-fruits', limit: 2, page: 1, sort: 'name', order: 'asc' });
+    const page2 = await getProducts({ categorySlug: 'dry-fruits', limit: 2, page: 2, sort: 'name', order: 'asc' });
     expect(page1.data.products.length).toBe(2);
     expect(page2.data.products.length).toBe(1);
     expect(page1.data.meta).toMatchObject({ page: 1, hasNext: true, hasPrev: false });

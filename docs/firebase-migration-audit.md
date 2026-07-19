@@ -694,3 +694,78 @@ this is the honest record of what Phase 3 shipped against it.
   substring `contains` on name/description — Firestore has no native
   full-text search. When a search term is supplied, results are ordered by
   `name` regardless of the requested sort (a documented limitation).
+
+## 35. Implementation Log — Phase 4 (variants, inventory, cart, wishlist, addresses)
+
+Where Phase 4 deviated from §30/§9/§17/§27 above, and why.
+
+- **`productVariants` is real now** — public read (active only), STAFF/
+  ADMIN (`products.manage`) write, exactly mirroring `products`/
+  `categories`. No `gstRatePercent` on the variant doc: GST is a
+  per-PRODUCT rate in the source schema (Prisma `Product.gstRate` — there
+  is no such column on `ProductVariant`), so cart line totals join to the
+  parent product for it rather than duplicating a rate that could never
+  legitimately differ between a product's own variants.
+- **`inventory` is real now, exactly as §30 specified**: never directly
+  writable by any client, including an admin's browser — always via a
+  Function, inside a Firestore transaction. STAFF/ADMIN with
+  `inventory.manage` may read raw `stock`/`reserved`; everyone else only
+  ever sees the denormalized `availableStock` already published on the
+  public `productVariants` doc (recomputed by the same transaction that
+  adjusts `inventory`).
+- **Real stock reservation on add-to-cart — new behavior, not a parity
+  port.** The existing Express `Inventory.reserved` column is defined in
+  the Prisma schema but is never written anywhere in the current codebase
+  (confirmed by a full-repo grep) — today's cart-time stock checks are
+  read-only/advisory, and the only real stock mutation happens at order-
+  creation time. Phase 4's instructions explicitly asked for real
+  reservation ("prevent adding more than available stock," "reserved stock
+  changes" under transactions), so `addCartItem`/`updateCartItemQuantity`/
+  `removeCartItem`/`clearCart` now actually increment/decrement
+  `inventory.reserved` inside a Firestore transaction alongside the cart
+  item write. This is a deliberate improvement, done because it was asked
+  for — not an accidental behavior change to the untouched Express cart.
+- **Cart mutations are Function-only, departing from §30's own suggestion**
+  ("direct client writes acceptable here since cart mutation has no
+  cross-user invariant"). That was true before reservation existed; once
+  adding to cart also has to atomically reserve stock, a direct client
+  write cannot be trusted to execute that transaction honestly (§27: never
+  trust client-computed prices/totals; a compromised or buggy client could
+  write a cart item without ever touching `inventory`, or reserve without
+  writing the item). `carts/{uid}` and its `items` subcollection are read:
+  owner-only, write: Function-only.
+- **Addresses are also Function-only for writes** — reads are still
+  direct-client (owner-only Rule, no cross-document invariant to protect
+  on a read), but §30 itself flagged this as unresolved ("likely still
+  safer as a Function given the transaction requirement"); the
+  default-address-exclusivity invariant (at most one `isDefault: true` per
+  user) is exactly the kind of cross-document invariant Rules cannot
+  safely enforce against a client racing two writes, so it resolved to
+  Function-only, matching the existing Express `users.repository.ts`
+  behavior (`prisma.$transaction` around "unset all other defaults, then
+  write"). Deleting a user's default address promotes the next one via a
+  **second, separate transaction** (not atomic with the delete) —
+  deliberately matching the existing Express behavior's own gap
+  (`users.service.ts`'s `deleteAddress` does the same two-step), not
+  inventing a stronger guarantee the original app doesn't have either.
+- **Wishlist needed no deviation** — direct client read/write, owner-only,
+  exactly as §30 proposed. No authoritative computation involved, and
+  duplicate-prevention is structural (the item doc ID is the product's own
+  slug), so there's nothing a Function would add.
+- **No guest-cart merge was implemented.** The migration instructions
+  asked for this "if the current app supports guest carts" — a repo-wide
+  search (backend and frontend) for any guest/session/device-based cart
+  concept returned nothing: the entire existing cart module is
+  `authenticate`-gated, with no pre-login cart to merge from. The
+  conditional in the instructions resolves to "not applicable," not a gap.
+- **Two separate auth systems, one page each.** `/cart`, `/wishlist`, and
+  `/account` were moved out of the JWT-only `ProtectedRoute` (they now sit
+  alongside the public routes in `app/router.tsx`) because a Firebase-only-
+  authenticated visitor has no JWT session and would otherwise be redirected
+  to `/login` before ever reaching that page's own Firebase-aware logic —
+  exactly the failure mode caught during manual verification. Each page now
+  enforces whichever auth system is relevant itself (mirroring how `/cart`
+  already worked before this phase). An already-JWT-authenticated user sees
+  no behavior change; a signed-into-neither visitor now sees an in-page
+  "sign in" prompt instead of a hard redirect — same destination, arguably
+  friendlier, and consistent across all three pages.

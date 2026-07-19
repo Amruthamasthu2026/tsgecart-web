@@ -1,19 +1,24 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
 import { cartApi, type CheckoutSummary } from '../../features/cart/cart.api';
+import { firebaseCartApi, useFirestoreCart, toLegacyCartSummary } from '../../services/firebaseCart';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Seo } from '../../components/Seo';
 import { formatCurrency } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
 
 export function CartPage() {
   const { isAuthenticated } = useAuth();
-  const { cart, updateItem, removeItem } = useCart();
+  const { isAuthenticated: isFirebaseAuthenticated } = useFirebaseAuth();
+  const { cart: expressCart, updateItem: expressUpdateItem, removeItem: expressRemoveItem } = useCart();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const [pincode, setPincode] = useState('');
@@ -33,14 +38,56 @@ export function CartPage() {
     },
   });
 
-  if (!isAuthenticated) {
+  // Firestore branch (Phase 4) — only queried/mutated when the flag is on
+  // and the caller is signed in via Firebase (the existing JWT session
+  // cannot satisfy Firestore's Callable Functions).
+  const { data: firestoreCartRaw } = useQuery({
+    queryKey: ['firebase-cart'],
+    queryFn: firebaseCartApi.get,
+    enabled: useFirestoreCart && isFirebaseAuthenticated,
+  });
+  const [firestoreError, setFirestoreError] = useState<string | null>(null);
+  const updateMutation = useMutation({
+    mutationFn: ({ variantId, quantity }: { variantId: string; quantity: number }) =>
+      firebaseCartApi.updateItem(variantId, quantity),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['firebase-cart'], data);
+      setFirestoreError(null);
+    },
+    onError: (err) => setFirestoreError(extractFirebaseError(err)),
+  });
+  const removeMutation = useMutation({
+    mutationFn: (variantId: string) => firebaseCartApi.removeItem(variantId),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['firebase-cart'], data);
+      setFirestoreError(null);
+    },
+    onError: (err) => setFirestoreError(extractFirebaseError(err)),
+  });
+
+  const cart = useFirestoreCart ? (firestoreCartRaw ? toLegacyCartSummary(firestoreCartRaw) : undefined) : expressCart;
+  const updateItem = useFirestoreCart
+    ? async (itemId: string, quantity: number) => {
+        await updateMutation.mutateAsync({ variantId: itemId, quantity });
+      }
+    : expressUpdateItem;
+  const removeItem = useFirestoreCart
+    ? async (itemId: string) => {
+        await removeMutation.mutateAsync(itemId);
+      }
+    : expressRemoveItem;
+
+  const signedIn = useFirestoreCart ? isFirebaseAuthenticated : isAuthenticated;
+  const signInPath = useFirestoreCart ? '/firebase-auth/login' : '/login';
+
+  if (!signedIn) {
     return (
       <div className="container-app py-8">
         <EmptyState
           emoji="🛒"
           title="Your cart is waiting"
           message="Sign in to view your cart and check out."
-          action={<Link to="/login" className="btn-primary">Sign in</Link>}
+          action={<Link to={signInPath} className="btn-primary">Sign in</Link>}
         />
       </div>
     );
@@ -63,6 +110,14 @@ export function CartPage() {
     <div className="container-app py-8">
       <Seo title="Your Cart" noindex />
       <PageHeader title="Your cart" subtitle={`${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`} />
+      {useFirestoreCart && (
+        <p className="mt-2 rounded-2xl bg-brand-50 px-4 py-2 text-xs font-medium text-ink">
+          Loaded from Firestore (VITE_USE_FIRESTORE_CART). Checkout/delivery/coupons are not migrated yet.
+        </p>
+      )}
+      {firestoreError && (
+        <p className="mt-2 rounded-2xl bg-red-50 px-4 py-2 text-xs font-medium text-red-700">{firestoreError}</p>
+      )}
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
         {/* Items */}
@@ -124,27 +179,33 @@ export function CartPage() {
         <aside className="h-fit space-y-4">
           <div className="card p-5">
             <h2 className="text-lg font-bold">Delivery</h2>
-            <p className="mt-1 text-xs text-ink-muted">We deliver within Hyderabad only.</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {useFirestoreCart
+                ? 'Delivery/coupon checking is not migrated to Firestore yet.'
+                : 'We deliver within Hyderabad only.'}
+            </p>
             <div className="mt-3 flex gap-2">
               <input
                 value={pincode}
                 onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="Enter pincode"
-                className="w-full rounded-xl border border-black/10 px-4 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                disabled={useFirestoreCart}
+                className="w-full rounded-xl border border-black/10 px-4 py-2 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 disabled:bg-slate-50 disabled:text-ink-muted"
               />
             </div>
             <input
               value={coupon}
               onChange={(e) => setCoupon(e.target.value.toUpperCase())}
               placeholder="Coupon code (optional)"
-              className="mt-2 w-full rounded-xl border border-black/10 px-4 py-2 text-sm uppercase outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+              disabled={useFirestoreCart}
+              className="mt-2 w-full rounded-xl border border-black/10 px-4 py-2 text-sm uppercase outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 disabled:bg-slate-50 disabled:text-ink-muted"
             />
             <Button
               fullWidth
               className="mt-3"
               variant="dark"
               isLoading={summaryMutation.isPending}
-              disabled={pincode.length !== 6}
+              disabled={useFirestoreCart || pincode.length !== 6}
               onClick={() => summaryMutation.mutate()}
             >
               Check & apply
@@ -192,7 +253,7 @@ export function CartPage() {
             <Button
               fullWidth
               className="mt-4"
-              disabled={!checkout?.serviceable}
+              disabled={useFirestoreCart || !checkout?.serviceable}
               onClick={() =>
                 navigate('/checkout', {
                   state: { pincode, coupon: checkout?.couponCode },
@@ -201,10 +262,16 @@ export function CartPage() {
             >
               Proceed to checkout
             </Button>
-            {!checkout?.serviceable && (
+            {useFirestoreCart ? (
               <p className="mt-2 text-center text-xs text-ink-muted">
-                Enter a serviceable pincode to continue
+                Checkout for Firestore carts is a later migration phase
               </p>
+            ) : (
+              !checkout?.serviceable && (
+                <p className="mt-2 text-center text-xs text-ink-muted">
+                  Enter a serviceable pincode to continue
+                </p>
+              )
             )}
           </div>
         </aside>

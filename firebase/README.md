@@ -16,10 +16,15 @@ design that this foundation is built against.
   Firestore collections, read-only Callable Functions, and a
   feature-flagged Firestore-backed frontend catalog surface — see
   "Catalog collections (Phase 3)" below.
+- **Phase 4 (Variants, inventory, cart, wishlist, addresses):**
+  `productVariants`/`inventory` collections, transactional stock
+  reservation, a per-user Firestore cart/wishlist/addresses, and
+  feature-flagged frontend wiring for the product-detail, cart, wishlist,
+  and account pages — see "Cart, inventory & addresses (Phase 4)" below.
 
-No cart, orders, payments, wishlist, rewards, or coupons data has been
-migrated. The existing backend keeps serving 100% of production traffic;
-nothing here is live in production yet.
+No orders, payments, rewards, or coupons data has been migrated. The
+existing backend keeps serving 100% of production traffic; nothing here is
+live in production yet.
 
 ---
 
@@ -357,3 +362,60 @@ small adapter that reshapes the Firestore response into the exact `Product`
 type `ProductCard` and the rest of the existing rendering code already
 expect, so no rendering code needed to change). Leaving the flag unset (the
 default) keeps every page on the existing Express API, unchanged.
+
+## Cart, inventory & addresses (Phase 4)
+
+`productVariants/{sku}` and `inventory/{sku}` complete what Phase 3
+deferred (see §34 of the audit) — a real per-variant collection, with
+transactional stock reservation. `carts/{uid}/items/{sku}` and
+`wishlists/{uid}/items/{productSlug}` are new per-user collections;
+`addresses/{addressId}` (drafted, inactive, since Phase 1) is now real.
+
+**Why cart writes are Function-only** (a deliberate departure from the
+Phase 1 draft rules, which sketched direct client writes for `carts`):
+adding to cart now also reserves stock — `inventory.reserved` is
+incremented inside the same Firestore transaction as the cart-item write.
+A client cannot be trusted to execute that transaction honestly (it could
+write the cart item without ever touching inventory), so
+`firebase/functions/src/cart/cart.function.ts`'s `addCartItem` /
+`updateCartItemQuantity` / `removeCartItem` / `clearCart` are the only way
+to mutate a cart — `firestore.rules`' `carts/{uid}` is read-only for the
+owner, write: `false`. This is new behavior beyond the existing Express
+cart, whose `Inventory.reserved` column is defined but never actually
+written anywhere in that codebase (confirmed by a full-repo grep) — Phase 4
+was explicitly asked for real reservation, so this is a deliberate
+improvement, not an accidental behavior change to the untouched Express API.
+
+**Addresses** are read directly (owner-only Rule) but written only via
+`firebase/functions/src/addresses/addresses.function.ts` — "at most one
+`isDefault: true` per user" is a cross-document invariant Rules can't
+safely protect against a client racing two writes, so it's enforced inside
+a Firestore transaction, mirroring the existing Express
+`users.repository.ts`'s `prisma.$transaction`-wrapped
+`createAddress`/`updateAddress`.
+
+**Wishlist** stayed direct-client, exactly as the Phase 1 draft proposed —
+no authoritative computation, and duplicate-prevention is structural (the
+item's doc ID is the product's own slug).
+
+**No guest-cart merge.** The instructions asked for this only "if the
+current app supports guest carts" — it doesn't (the entire existing cart
+module is `authenticate`-gated; there's no pre-login cart to merge from),
+so this resolved to not-applicable rather than a gap.
+
+**Migration scripts** (not executed, same rule as every other phase):
+- `backend/scripts/exportVariantsFromMysql.ts` — read-only MySQL export.
+- `firebase/functions/scripts/importVariantsToFirestore.ts` — dry-run by
+  default; `--execute` performs the real Firestore writes; idempotent.
+
+**Frontend**: `services/firebaseCart.ts`, `firebaseWishlist.ts`,
+`firebaseAddresses.ts` — new, separate services alongside the existing
+`features/cart/cart.api.ts`, `features/wishlist/wishlist.api.ts`,
+`features/account/account.api.ts` (all untouched).
+`VITE_USE_FIRESTORE_CART` / `VITE_USE_FIRESTORE_WISHLIST` /
+`VITE_USE_FIRESTORE_ADDRESSES` are independent flags. `/cart`, `/wishlist`,
+and `/account` moved out of the JWT-only `ProtectedRoute` in
+`app/router.tsx` (each page now enforces whichever auth system applies
+itself — see audit §35) — an already-JWT-authenticated user sees no
+behavior change; a Firebase-only-authenticated user can now actually reach
+these pages instead of being redirected to the old `/login`.

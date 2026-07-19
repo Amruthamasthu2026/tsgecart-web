@@ -1,0 +1,12 @@
+{
+  "variants": [
+    { "sku": "ALM-250", "productSlug": "premium-almonds", "unitLabel": "250 g", "mrp": "349.00", "price": "299.00", "weightGrams": 250, "isActive": true, "isDefault": false, "stock": 40, "reserved": 0, "lowStockThreshold": 5 },
+    { "sku": "ALM-500", "productSlug": "premium-almonds", "unitLabel": "500 g", "mrp": "649.00", "price": "549.00", "weightGrams": 500, "isActive": true, "isDefault": true, "stock": 25, "reserved": 0, "lowStockThreshold": 5 },
+    { "sku": "WAL-500", "productSlug": "kashmiri-walnuts", "unitLabel": "500 g", "mrp": "799.00", "price": "699.00", "weightGrams": 500, "isActive": true, "isDefault": true, "stock": 15, "reserved": 0, "lowStockThreshold": 5 },
+    { "sku": "CSH-200", "productSlug": "roasted-cashews", "unitLabel": "200 g", "mrp": "299.00", "price": "249.00", "weightGrams": 200, "isActive": true, "isDefault": true, "stock": 3, "reserved": 0, "lowStockThreshold": 5 },
+    { "sku": "RSN-250", "productSlug": "golden-raisins", "unitLabel": "250 g", "mrp": "199.00", "price": "169.00", "weightGrams": 250, "isActive": true, "isDefault": true, "stock": 30, "reserved": 0, "lowStockThreshold": 5 },
+    { "sku": "PNR-200", "productSlug": "farm-fresh-paneer", "unitLabel": "200 g", "mrp": "89.00", "price": "79.00", "weightGrams": 200, "isActive": true, "isDefault": true, "stock": 50, "reserved": 0, "lowStockThreshold": 5 },
+    { "sku": "MLK-1L", "productSlug": "toned-milk", "unitLabel": "1 L", "mrp": "66.00", "price": "62.00", "weightGrams": null, "isActive": true, "isDefault": true, "stock": 100, "reserved": 0, "lowStockThreshold": 10 },
+    { "sku": "MNG-1KG", "productSlug": "alphonso-mangoes", "unitLabel": "1 kg", "mrp": "399.00", "price": "349.00", "weightGrams": 1000, "isActive": true, "isDefault": true, "stock": 20, "reserved": 0, "lowStockThreshold": 5 }
+  ]
+}

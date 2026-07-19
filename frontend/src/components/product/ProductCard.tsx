@@ -3,8 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Product } from '../../features/catalog/catalog.types';
 import { formatCurrency, discountPercent } from '../../lib/format';
 import { useAddToCart } from '../../features/cart/useAddToCart';
+import { useFirebaseAddToCart } from '../../features/cart/useFirebaseAddToCart';
 import { wishlistApi } from '../../features/wishlist/wishlist.api';
+import { firebaseWishlistApi, useFirestoreWishlist } from '../../services/firebaseWishlist';
+import { useFirestoreProducts } from '../../services/firebaseProducts';
+import { useFirestoreCart } from '../../services/firebaseCart';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
 import { HeartIcon, StarIcon } from '../ui/icons';
 
 interface ProductCardProps {
@@ -12,8 +17,17 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { add, pendingId } = useAddToCart();
+  // A product rendered here may have come from either data source (this
+  // component has no way to know which) — the *global* flags decide which
+  // backend "Add to cart"/wishlist actually go to, exactly mirroring
+  // ProductDetailPage's canAddToFirestoreCart logic.
+  const canUseFirestoreCart = useFirestoreProducts && useFirestoreCart;
+  const previewOnly = useFirestoreProducts && !canUseFirestoreCart;
+  const legacyAddToCart = useAddToCart();
+  const firebaseAddToCart = useFirebaseAddToCart();
+  const { add, pendingId } = canUseFirestoreCart ? firebaseAddToCart : legacyAddToCart;
   const { isAuthenticated } = useAuth();
+  const { isAuthenticated: isFirebaseAuthenticated, user: firebaseUser } = useFirebaseAuth();
   const queryClient = useQueryClient();
 
   const variant = product.variants.find((v) => v.isDefault) ?? product.variants[0];
@@ -22,9 +36,11 @@ export function ProductCard({ product }: ProductCardProps) {
   const image = product.images[0];
 
   const wishMutation = useMutation({
-    mutationFn: () => wishlistApi.add(product.id),
+    mutationFn: () =>
+      useFirestoreWishlist ? firebaseWishlistApi.add(firebaseUser!.uid, product.slug) : wishlistApi.add(product.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
   });
+  const canWishlist = useFirestoreWishlist ? isFirebaseAuthenticated : isAuthenticated;
 
   return (
     <div className="card card-hover group flex flex-col overflow-hidden">
@@ -46,7 +62,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Wishlist */}
         <button
-          onClick={() => isAuthenticated && wishMutation.mutate()}
+          onClick={() => canWishlist && wishMutation.mutate()}
           className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white text-ink-muted shadow-soft transition hover:text-badge-trending"
           aria-label="Add to wishlist"
         >
@@ -93,10 +109,11 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
           <button
             onClick={() => variant && add(variant.id)}
-            disabled={outOfStock || !variant || pendingId === variant?.id}
+            disabled={outOfStock || !variant || pendingId === variant?.id || previewOnly}
+            title={previewOnly ? 'Enable VITE_USE_FIRESTORE_CART to add Firestore-sourced products' : undefined}
             className="rounded-full bg-brand px-4 py-1.5 text-xs font-bold text-ink transition hover:bg-brand-400 hover:shadow-blob disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           >
-            {outOfStock ? 'Out' : pendingId === variant?.id ? '···' : 'ADD'}
+            {previewOnly ? '—' : outOfStock ? 'Out' : pendingId === variant?.id ? '···' : 'ADD'}
           </button>
         </div>
       </div>

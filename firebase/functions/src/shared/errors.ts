@@ -85,3 +85,10 @@ export class TooManyRequestsError extends AppError {
     super(message, 429, 'RATE_LIMITED', 'resource-exhausted');
   }
 }
+
+/** Requested cart/order quantity exceeds what's currently available (stock minus reservations). */
+export class InsufficientStockError extends AppError {
+  constructor(available: number, message = `Only ${available} in stock`) {
+    super(message, 409, 'INSUFFICIENT_STOCK', 'failed-precondition', { available });
+  }
+}

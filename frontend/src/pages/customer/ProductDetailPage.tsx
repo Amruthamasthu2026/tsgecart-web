@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
 import { discoveryApi } from '../../features/discovery/discovery.api';
 import { firebaseProductsApi, useFirestoreProducts, toLegacyProductDetail } from '../../services/firebaseProducts';
+import { useFirestoreCart } from '../../services/firebaseCart';
 import { formatCurrency, discountPercent, formatDate } from '../../lib/format';
 import { Button } from '../../components/ui/Button';
 import { useAddToCart } from '../../features/cart/useAddToCart';
+import { useFirebaseAddToCart } from '../../features/cart/useFirebaseAddToCart';
 import { useAuth } from '../../contexts/AuthContext';
 import { ReviewForm } from '../../components/product/ReviewForm';
 import { ProductCard } from '../../components/product/ProductCard';
@@ -14,15 +16,36 @@ import { Seo } from '../../components/Seo';
 
 export function ProductDetailPage() {
   const { slug = '' } = useParams();
-  const { data: product, isLoading, isError } = useQuery({
-    queryKey: ['product', slug, useFirestoreProducts],
-    queryFn: async () =>
-      useFirestoreProducts
-        ? toLegacyProductDetail(await firebaseProductsApi.getProduct(slug))
-        : catalogApi.getProduct(slug),
+  const { data: fsProduct } = useQuery({
+    queryKey: ['firestore-product-raw', slug],
+    queryFn: () => firebaseProductsApi.getProduct(slug),
+    enabled: useFirestoreProducts,
   });
 
-  const { add, pendingId, error: addError } = useAddToCart();
+  // Real per-variant selection (Phase 4) — only fetched once we know the
+  // Firestore product's own id (its slug), and only in Firestore mode.
+  const { data: realVariants } = useQuery({
+    queryKey: ['firestore-product-variants', fsProduct?.id],
+    queryFn: () => firebaseProductsApi.getProductVariants(fsProduct!.id),
+    enabled: useFirestoreProducts && !!fsProduct?.id,
+  });
+
+  const { data: product, isLoading, isError } = useQuery({
+    queryKey: ['product', slug, useFirestoreProducts, fsProduct, realVariants],
+    queryFn: async () =>
+      useFirestoreProducts
+        ? toLegacyProductDetail(fsProduct ?? (await firebaseProductsApi.getProduct(slug)), realVariants)
+        : catalogApi.getProduct(slug),
+    enabled: !useFirestoreProducts || !!fsProduct,
+  });
+
+  // Cart integration: Firestore-sourced products only get a working "Add to
+  // cart" once Firestore cart mode is also enabled (their variant IDs are
+  // Firestore SKUs, meaningless to the Express cart's variant-ID space).
+  const canAddToFirestoreCart = useFirestoreProducts && useFirestoreCart;
+  const legacyAddToCart = useAddToCart();
+  const firebaseAddToCart = useFirebaseAddToCart();
+  const { add, pendingId, error: addError } = canAddToFirestoreCart ? firebaseAddToCart : legacyAddToCart;
   const { isAuthenticated } = useAuth();
   const [variantId, setVariantId] = useState<string | null>(null);
 
@@ -184,24 +207,32 @@ export function ProductDetailPage() {
             </div>
           )}
 
-          <div className="mt-6 flex items-center gap-3">
-            <Button
-              disabled={stock <= 0 || !selected || useFirestoreProducts}
-              isLoading={!!selected && pendingId === selected.id}
-              onClick={() => selected && add(selected.id)}
-            >
-              {useFirestoreProducts ? 'Preview only' : stock > 0 ? 'Add to cart' : 'Out of stock'}
-            </Button>
-            {stock > 0 && stock <= 10 && (
-              <span className="text-sm font-medium text-red-600">Only {stock} left!</span>
-            )}
-          </div>
-          {useFirestoreProducts && (
-            <p className="mt-2 text-xs text-ink-muted">
-              This product is loaded from Firestore (VITE_USE_FIRESTORE_PRODUCTS). Cart integration for
-              Firestore-sourced products lands in a later migration phase.
-            </p>
-          )}
+          {(() => {
+            const previewOnly = useFirestoreProducts && !canAddToFirestoreCart;
+            const sellable = !!selected && selected.isActive && stock > 0;
+            return (
+              <>
+                <div className="mt-6 flex items-center gap-3">
+                  <Button
+                    disabled={!sellable || previewOnly}
+                    isLoading={!!selected && pendingId === selected.id}
+                    onClick={() => selected && add(selected.id)}
+                  >
+                    {previewOnly ? 'Preview only' : sellable ? 'Add to cart' : 'Out of stock'}
+                  </Button>
+                  {stock > 0 && stock <= 10 && (
+                    <span className="text-sm font-medium text-red-600">Only {stock} left!</span>
+                  )}
+                </div>
+                {previewOnly && (
+                  <p className="mt-2 text-xs text-ink-muted">
+                    This product is loaded from Firestore (VITE_USE_FIRESTORE_PRODUCTS). Set
+                    VITE_USE_FIRESTORE_CART=true to enable Add to cart for Firestore-sourced products.
+                  </p>
+                )}
+              </>
+            );
+          })()}
           {addError && <p className="mt-2 text-sm text-red-600">{addError}</p>}
 
           {product.description && (

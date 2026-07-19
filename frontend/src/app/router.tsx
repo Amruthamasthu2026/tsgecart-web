@@ -163,6 +163,16 @@ export const router = createBrowserRouter([
       { path: 'products', element: wrap(<ProductsPage />) },
       { path: 'products/:slug', element: wrap(<ProductDetailPage />) },
       { path: 'cart', element: wrap(<CartPage />) },
+      // wishlist/account moved out of the JWT-only ProtectedRoute block
+      // below (Phase 4): each page now supports EITHER auth system
+      // (JWT via AuthContext, or Firebase via FirebaseAuthContext when its
+      // Firestore feature flag is on) and enforces its own sign-in check
+      // internally — mirroring how `cart` above already worked. A router-
+      // level JWT-only gate would otherwise redirect a Firebase-only-
+      // authenticated user to /login before the page's own Firebase-aware
+      // logic ever ran. Existing JWT-authenticated users see no change.
+      { path: 'wishlist', element: wrap(<WishlistPage />) },
+      { path: 'account', element: wrap(<AccountPage />) },
       { path: 'about', element: wrap(<AboutPage />) },
       { path: 'contact', element: wrap(<ContactPage />) },
       { path: 'faq', element: wrap(<FaqPage />) },
@@ -175,11 +185,9 @@ export const router = createBrowserRouter([
           { path: 'checkout', element: wrap(<CheckoutPage />) },
           { path: 'orders', element: wrap(<OrdersPage />) },
           { path: 'orders/:id', element: wrap(<OrderDetailPage />) },
-          { path: 'wishlist', element: wrap(<WishlistPage />) },
           { path: 'rewards', element: wrap(<RewardsPage />) },
           { path: 'coupons', element: wrap(<CouponsPage />) },
           { path: 'notifications', element: wrap(<NotificationsPage />) },
-          { path: 'account', element: wrap(<AccountPage />) },
         ],
       },
       {

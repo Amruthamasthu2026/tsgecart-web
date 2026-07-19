@@ -90,12 +90,17 @@ service cloud.firestore {
     //   allow create, delete: if false; // Function-only (auth-register / admin)
     // }
 
-    // match /addresses/{addressId} {
-    //   allow read, write: if isSignedIn() &&
-    //     resource.data.userId == request.auth.uid;
-    //   allow create: if isSignedIn() &&
-    //     request.resource.data.userId == request.auth.uid;
-    // }
+    // ── Addresses (Phase 4) ──────────────────────────────────────────────
+    // Read: owner only, direct client (no cross-document invariant to
+    // protect on a read). Write: Function-only — "at most one
+    // isDefault:true per user" is a cross-document invariant Rules cannot
+    // safely enforce against a client racing two writes; see
+    // addresses/addresses.function.ts, which does this inside a Firestore
+    // transaction using the Admin SDK (which bypasses Rules entirely).
+    match /addresses/{addressId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
 
     // ── Catalog (Phase 3 — products/categories migrated) ────────────────
     // Public: read active documents only. STAFF/ADMIN (products.manage):
@@ -116,28 +121,54 @@ service cloud.firestore {
     //   allow write: if hasPermission('products.manage');
     // }
 
-    // match /productVariants/{variantId} {
-    //   allow read: if resource.data.isActive == true || isStaffOrAdmin();
-    //   allow write: if hasPermission('products.manage');
-    // }
+    // ── Product variants (Phase 4) ───────────────────────────────────────
+    // Same public/admin split as products/categories above: public reads
+    // active variants only; STAFF/ADMIN (products.manage) read everything
+    // and write.
+    match /productVariants/{variantId} {
+      allow read: if resource.data.isActive == true || isStaffOrAdmin();
+      allow create, update, delete: if hasPermission('products.manage');
+    }
 
-    // match /inventory/{variantId} {
-    //   allow read: if isStaffOrAdmin(); // customers get availableStock via a Function response, not a direct doc read
-    //   allow write: if false; // Function-only — every write is transactional
-    // }
+    // ── Inventory (Phase 4) ──────────────────────────────────────────────
+    // NEVER directly writable by any client, including an admin's browser
+    // — every write is transactional (stock reservation, order flow) and
+    // must go through a Function using the Admin SDK. STAFF/ADMIN with
+    // inventory.manage may read the raw stock/reserved numbers; everyone
+    // else sees availableStock via the public `productVariants` doc
+    // instead (denormalized by the same Functions that write here).
+    match /inventory/{variantId} {
+      allow read: if hasPermission('inventory.manage');
+      allow write: if false;
+    }
 
-    // match /carts/{uid} {
-    //   allow read, write: if isOwner(uid);
-    //   match /items/{variantId} {
-    //     allow read, write: if isOwner(uid);
-    //   }
-    // }
+    // ── Cart (Phase 4) ────────────────────────────────────────────────
+    // Read: owner only, direct client, for display. Write: Function-only
+    // — cart mutations reserve stock transactionally alongside the cart
+    // item write (see cart/cart.function.ts) and must never trust a
+    // client-supplied price or total (docs/firebase-migration-audit.md
+    // §27); a direct client write could not honor that invariant, so this
+    // deliberately departs from the audit §30 draft's "direct client
+    // writes acceptable" suggestion — see the Phase 4 completion report.
+    match /carts/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+      match /items/{variantId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
 
-    // match /wishlists/{uid} {
-    //   match /items/{productId} {
-    //     allow read, write: if isOwner(uid);
-    //   }
-    // }
+    // ── Wishlist (Phase 4) ───────────────────────────────────────────────
+    // No authoritative computation involved (just a list of product
+    // references) and duplicate-prevention comes for free from using the
+    // product's own doc ID as the item's doc ID — direct client
+    // read/write is safe here, matching the audit §30 draft exactly.
+    match /wishlists/{uid} {
+      match /items/{productId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
 
     // match /deliveryZones/{zoneId} {
     //   allow read: if true; // needed pre-auth for checkout-eligibility display

@@ -1,6 +1,12 @@
 import { httpsCallable } from 'firebase/functions';
 import { firebaseFunctions } from '../lib/firebase';
-import type { Product, ProductDetail, Category, Pagination } from '../features/catalog/catalog.types';
+import type {
+  Product,
+  ProductDetail,
+  ProductVariant,
+  Category,
+  Pagination,
+} from '../features/catalog/catalog.types';
 
 /**
  * Firestore-backed catalog service — added ALONGSIDE
@@ -62,6 +68,21 @@ export interface FirestoreCategory {
   updatedAt: string;
 }
 
+/** A real `productVariants/{sku}` document (Phase 4) — see `getProductVariants` below. */
+export interface FirestoreVariant {
+  id: string;
+  productId: string;
+  unitLabel: string;
+  mrpPaise: number;
+  pricePaise: number;
+  weightGrams: number | null;
+  isActive: boolean;
+  isDefault: boolean;
+  availableStock: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FirestorePagination {
   page: number;
   limit: number;
@@ -102,6 +123,10 @@ const getTrendingProductsCallable = httpsCallable<{ limit?: number }, { products
   firebaseFunctions,
   'getTrendingProducts',
 );
+const getProductVariantsCallable = httpsCallable<{ productId: string }, { variants: FirestoreVariant[] }>(
+  firebaseFunctions,
+  'getProductVariants',
+);
 
 export const firebaseProductsApi = {
   async getProducts(
@@ -129,6 +154,12 @@ export const firebaseProductsApi = {
   async getTrendingProducts(limit = 8): Promise<FirestoreProduct[]> {
     const result = await getTrendingProductsCallable({ limit });
     return result.data.products;
+  },
+
+  /** Every active variant of a product (Phase 4), for the product-detail page's real variant selector. */
+  async getProductVariants(productId: string): Promise<FirestoreVariant[]> {
+    const result = await getProductVariantsCallable({ productId });
+    return result.data.variants;
   },
 };
 
@@ -181,9 +212,43 @@ export function toLegacyProduct(fsProduct: FirestoreProduct): Product {
   };
 }
 
-/** Same reshaping as `toLegacyProduct`, plus an empty `reviews` array — Phase 3 has no `reviews` collection yet. */
-export function toLegacyProductDetail(fsProduct: FirestoreProduct): ProductDetail {
-  return { ...toLegacyProduct(fsProduct), reviews: [] };
+/**
+ * Reshapes real `productVariants` docs (Phase 4) into the legacy
+ * `ProductVariant[]` shape — a faithful multi-variant list, unlike
+ * `toLegacyProduct`'s single synthesized variant from the `defaultVariant`
+ * snapshot. `inventory.reserved` is always reported as 0: Firestore never
+ * exposes the raw reserved count to a public client (see
+ * inventory/inventory.types.ts) — `availableStock` (net of reservations
+ * already) is the only stock figure the client ever sees, matching
+ * `stock - reserved` closely enough for display purposes.
+ */
+export function toLegacyVariants(fsVariants: FirestoreVariant[]): ProductVariant[] {
+  return fsVariants.map((v) => ({
+    id: v.id,
+    sku: v.id,
+    unitLabel: v.unitLabel,
+    mrp: paiseToRupeeString(v.mrpPaise),
+    price: paiseToRupeeString(v.pricePaise),
+    isDefault: v.isDefault,
+    isActive: v.isActive,
+    inventory: { stock: v.availableStock, reserved: 0 },
+  }));
+}
+
+/**
+ * Same reshaping as `toLegacyProduct`, plus an empty `reviews` array —
+ * there is still no `reviews` collection (Phase 3/4 didn't add one). Pass
+ * `realVariants` (from `getProductVariants`, Phase 4) to replace the
+ * single synthesized `defaultVariant` guess with the true variant list;
+ * omit it to keep the Phase 3 single-variant behavior.
+ */
+export function toLegacyProductDetail(fsProduct: FirestoreProduct, realVariants?: FirestoreVariant[]): ProductDetail {
+  const base = toLegacyProduct(fsProduct);
+  return {
+    ...base,
+    variants: realVariants && realVariants.length > 0 ? toLegacyVariants(realVariants) : base.variants,
+    reviews: [],
+  };
 }
 
 export function toLegacyCategory(fsCategory: FirestoreCategory): Category {

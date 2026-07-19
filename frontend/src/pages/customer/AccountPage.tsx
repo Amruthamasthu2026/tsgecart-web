@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFirebaseAuth } from '../../contexts/FirebaseAuthContext';
 import { accountApi, type Address, type AddressPayload } from '../../features/account/account.api';
+import { firebaseAddressesApi, useFirestoreAddresses } from '../../services/firebaseAddresses';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { Seo } from '../../components/Seo';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
 
 const EMPTY_ADDRESS: AddressPayload = {
   type: 'HOME',
@@ -30,7 +34,8 @@ const QUICK_LINKS = [
 ];
 
 export function AccountPage() {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, isAuthenticated, logout, refreshUser } = useAuth();
+  const { isAuthenticated: isFirebaseAuthenticated, user: firebaseUser } = useFirebaseAuth();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<AddressPayload>(EMPTY_ADDRESS);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -41,8 +46,10 @@ export function AccountPage() {
   const [profileSaved, setProfileSaved] = useState(false);
 
   const { data: addresses = [], isLoading } = useQuery({
-    queryKey: ['addresses'],
-    queryFn: accountApi.listAddresses,
+    queryKey: ['addresses', useFirestoreAddresses],
+    queryFn: () =>
+      useFirestoreAddresses ? firebaseAddressesApi.listAddresses(firebaseUser!.uid) : accountApi.listAddresses(),
+    enabled: !useFirestoreAddresses || (isFirebaseAuthenticated && !!firebaseUser),
   });
 
   const profileMutation = useMutation({
@@ -56,18 +63,25 @@ export function AccountPage() {
 
   const saveMutation = useMutation({
     mutationFn: (payload: AddressPayload) =>
-      editingId ? accountApi.updateAddress(editingId, payload) : accountApi.createAddress(payload),
+      useFirestoreAddresses
+        ? editingId
+          ? firebaseAddressesApi.updateAddress(editingId, payload)
+          : firebaseAddressesApi.createAddress(payload)
+        : editingId
+          ? accountApi.updateAddress(editingId, payload)
+          : accountApi.createAddress(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['addresses'] });
       setForm(EMPTY_ADDRESS);
       setEditingId(null);
       setError(null);
     },
-    onError: (err) => setError(extractApiError(err)),
+    onError: (err) => setError(useFirestoreAddresses ? extractFirebaseError(err) : extractApiError(err)),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => accountApi.deleteAddress(id),
+    mutationFn: (id: string) =>
+      useFirestoreAddresses ? firebaseAddressesApi.deleteAddress(id) : accountApi.deleteAddress(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['addresses'] }),
   });
 
@@ -90,6 +104,25 @@ export function AccountPage() {
 
   const set = (key: keyof AddressPayload) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  // No longer router-gated (Phase 4 moved this route out of the JWT-only
+  // ProtectedRoute — see app/router.tsx). Signed in via EITHER auth system
+  // is enough to reach the page (the profile section needs the JWT session;
+  // the addresses section works with either, depending on
+  // VITE_USE_FIRESTORE_ADDRESSES) — this replaces the redirect the router
+  // used to guarantee for a caller signed into neither.
+  if (!isAuthenticated && !(useFirestoreAddresses && isFirebaseAuthenticated)) {
+    return (
+      <div className="container-app py-8">
+        <EmptyState
+          emoji="👤"
+          title="Sign in to your account"
+          message="Sign in to manage your profile, orders and addresses."
+          action={<Link to="/login" className="btn-primary">Sign in</Link>}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container-app py-8">
@@ -212,7 +245,19 @@ export function AccountPage() {
       {/* Saved addresses */}
       <section className="mt-8">
         <h2 className="mb-4 text-lg font-bold text-ink">Saved addresses</h2>
-        {isLoading ? (
+        {useFirestoreAddresses && (
+          <p className="mb-4 rounded-2xl bg-brand-50 px-4 py-2 text-xs font-medium text-ink">
+            Loaded from Firestore (VITE_USE_FIRESTORE_ADDRESSES).
+          </p>
+        )}
+        {useFirestoreAddresses && !isFirebaseAuthenticated ? (
+          <p className="text-sm text-ink-muted">
+            <Link to="/firebase-auth/login" className="font-semibold text-brand-700 hover:underline">
+              Sign in with Firebase
+            </Link>{' '}
+            to manage addresses (VITE_USE_FIRESTORE_ADDRESSES is on).
+          </p>
+        ) : isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="skeleton h-28 w-full" />
             <div className="skeleton h-28 w-full" />

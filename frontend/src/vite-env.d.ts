@@ -18,6 +18,18 @@ interface ImportMetaEnv {
   // instead of the existing Express catalog API. Unset/false (the default)
   // keeps every page on the existing Express API, unchanged.
   readonly VITE_USE_FIRESTORE_PRODUCTS?: string;
+  // Feature flags (Firebase migration Phase 4): when "true", the cart /
+  // wishlist / address-management UI reads and writes Firestore
+  // (services/firebaseCart.ts, firebaseWishlist.ts, firebaseAddresses.ts)
+  // instead of the existing Express APIs. Each flag is independent. Unset/
+  // false (the default) keeps that feature on the existing Express API,
+  // unchanged. Using any of these requires being signed in via Firebase
+  // (see contexts/FirebaseAuthContext.tsx) — the existing JWT session does
+  // not carry a Firebase ID token, so Firestore Security Rules cannot
+  // recognize it.
+  readonly VITE_USE_FIRESTORE_CART?: string;
+  readonly VITE_USE_FIRESTORE_WISHLIST?: string;
+  readonly VITE_USE_FIRESTORE_ADDRESSES?: string;
 }
 
 interface ImportMeta {
