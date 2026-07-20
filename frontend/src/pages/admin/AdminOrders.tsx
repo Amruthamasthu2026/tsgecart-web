@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { formatCurrency, formatDate } from '../../lib/format';
 
+const api = useFirestoreAdmin ? firebaseAdminApi : adminApi;
 const STATUSES = ['CONFIRMED', 'PREPARING', 'PACKED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 
 export function AdminOrders() {
@@ -13,7 +15,7 @@ export function AdminOrders() {
   const { data } = useQuery({
     queryKey: ['admin-orders', statusFilter, search],
     queryFn: () =>
-      adminApi.listOrders({
+      api.listOrders({
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(search ? { search } : {}),
       }),
@@ -21,7 +23,7 @@ export function AdminOrders() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      adminApi.updateOrderStatus(id, status),
+      api.updateOrderStatus(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-orders'] }),
   });
 

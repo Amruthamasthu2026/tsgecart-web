@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { formatDate } from '../../lib/format';
+
+const api = useFirestoreAdmin ? firebaseAdminApi : adminApi;
 
 export function AdminCustomers() {
   const queryClient = useQueryClient();
@@ -9,12 +12,12 @@ export function AdminCustomers() {
 
   const { data } = useQuery({
     queryKey: ['admin-customers', search],
-    queryFn: () => adminApi.listCustomers(search ? { search } : {}),
+    queryFn: () => api.listCustomers(search ? { search } : {}),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      adminApi.setCustomerActive(id, isActive),
+      api.setCustomerActive(id, isActive),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-customers'] }),
   });
 

@@ -2,9 +2,13 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { catalogApi } from '../../features/catalog/catalog.api';
 import { adminApi } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
+
+const extractError = useFirestoreAdmin ? extractFirebaseError : extractApiError;
 
 export function AdminCategories() {
   const queryClient = useQueryClient();
@@ -13,24 +17,24 @@ export function AdminCategories() {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
-    queryFn: () => catalogApi.listCategories(),
+    queryFn: () => (useFirestoreAdmin ? firebaseAdminApi.listCategoriesAdmin() : catalogApi.listCategories()),
   });
 
   const createMutation = useMutation({
-    mutationFn: () => adminApi.createCategory({ name }),
+    mutationFn: () => (useFirestoreAdmin ? firebaseAdminApi.createCategory({ name }) : adminApi.createCategory({ name })),
     onSuccess: () => {
       setName('');
       setError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
-    onError: (err) => setError(extractApiError(err)),
+    onError: (err) => setError(extractError(err)),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => adminApi.deleteCategory(id),
+    mutationFn: (id: string) => (useFirestoreAdmin ? firebaseAdminApi.deleteCategory(id) : adminApi.deleteCategory(id)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-categories'] }),
-    onError: (err) => setError(extractApiError(err)),
+    onError: (err) => setError(extractError(err)),
   });
 
   return (

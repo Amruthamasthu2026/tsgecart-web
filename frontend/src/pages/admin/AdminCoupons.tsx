@@ -1,21 +1,26 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { formatCurrency } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
+
+const api = useFirestoreAdmin ? firebaseAdminApi : adminApi;
+const extractError = useFirestoreAdmin ? extractFirebaseError : extractApiError;
 
 export function AdminCoupons() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ code: '', type: 'FLAT', value: '', minOrder: '', perUserLimit: '1' });
   const [error, setError] = useState<string | null>(null);
 
-  const { data: coupons = [] } = useQuery({ queryKey: ['admin-coupons'], queryFn: adminApi.listCoupons });
+  const { data: coupons = [] } = useQuery({ queryKey: ['admin-coupons'], queryFn: api.listCoupons });
 
   const createMutation = useMutation({
     mutationFn: () =>
-      adminApi.createCoupon({
+      api.createCoupon({
         code: form.code,
         type: form.type,
         value: Number(form.value),
@@ -27,11 +32,11 @@ export function AdminCoupons() {
       setError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
     },
-    onError: (err) => setError(extractApiError(err)),
+    onError: (err) => setError(extractError(err)),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => adminApi.deleteCoupon(id),
+    mutationFn: (id: string) => api.deleteCoupon(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }),
   });
 

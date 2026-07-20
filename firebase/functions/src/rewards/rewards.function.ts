@@ -1,7 +1,7 @@
 import { onCall, type CallableRequest } from 'firebase-functions/v2/https';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, AggregateField } from 'firebase-admin/firestore';
 import { db } from '../config/firebaseAdmin';
-import { requireAuthenticatedCaller } from '../shared/auth';
+import { requireAuthenticatedCaller, requirePermission } from '../shared/auth';
 import { AppError, ConflictError } from '../shared/errors';
 import {
   computeNextSpinAt,
@@ -120,6 +120,70 @@ export const spinReward = onCall(async (request: CallableRequest) => {
   try {
     const caller = requireAuthenticatedCaller(request);
     return await spinRewardTx(caller.uid);
+  } catch (err) {
+    if (err instanceof AppError) throw err.toHttpsError();
+    throw err;
+  }
+});
+
+export interface RewardAnalytics {
+  totalSpins: number;
+  todaySpins: number;
+  redeemedCount: number;
+  totalCashbackPaise: number;
+  mostWonTier: { cashbackAmountPaise: number; count: number } | null;
+}
+
+/**
+ * Admin reward-spin analytics, migration Phase 6 — ports
+ * `GET /rewards-spin/admin/analytics` (`rewardSpin.service.ts`'s
+ * `analytics()`). Uses Firestore `count()`/`sum()` aggregation queries
+ * rather than a maintained aggregate document, same rationale as
+ * `admin/dashboard.function.ts`. "Most won tier" has no server-side
+ * groupBy equivalent — bounded to the most recent 2,000 reward coupons
+ * (documented limitation, mirrors the same bounded-scan trade-off already
+ * made for `getTopProducts`).
+ */
+const MAX_COUPONS_FOR_MOST_WON = 2000;
+
+export async function fetchRewardAnalytics(): Promise<RewardAnalytics> {
+  const startOfToday = new Date();
+  startOfToday.setUTCHours(0, 0, 0, 0);
+
+  const [totalAgg, todayAgg, redeemedAgg, cashbackAgg, recentSnap] = await Promise.all([
+    rewardCouponsCollection().count().get(),
+    rewardCouponsCollection().where('createdAt', '>=', Timestamp.fromDate(startOfToday)).count().get(),
+    rewardCouponsCollection().where('status', '==', 'REDEEMED').count().get(),
+    rewardCouponsCollection()
+      .where('status', '==', 'REDEEMED')
+      .aggregate({ totalCashbackPaise: AggregateField.sum('cashbackAmountPaise') })
+      .get(),
+    rewardCouponsCollection().orderBy('createdAt', 'desc').limit(MAX_COUPONS_FOR_MOST_WON).select('cashbackAmountPaise').get(),
+  ]);
+
+  const tierCounts = new Map<number, number>();
+  for (const doc of recentSnap.docs) {
+    const amount = doc.data().cashbackAmountPaise as number;
+    tierCounts.set(amount, (tierCounts.get(amount) ?? 0) + 1);
+  }
+  let mostWonTier: RewardAnalytics['mostWonTier'] = null;
+  for (const [cashbackAmountPaise, count] of tierCounts) {
+    if (!mostWonTier || count > mostWonTier.count) mostWonTier = { cashbackAmountPaise, count };
+  }
+
+  return {
+    totalSpins: totalAgg.data().count,
+    todaySpins: todayAgg.data().count,
+    redeemedCount: redeemedAgg.data().count,
+    totalCashbackPaise: cashbackAgg.data().totalCashbackPaise ?? 0,
+    mostWonTier,
+  };
+}
+
+export const getRewardAnalytics = onCall(async (request: CallableRequest) => {
+  try {
+    requirePermission(request, 'rewards.manage');
+    return await fetchRewardAnalytics();
   } catch (err) {
     if (err instanceof AppError) throw err.toHttpsError();
     throw err;

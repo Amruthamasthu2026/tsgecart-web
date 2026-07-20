@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../features/admin/admin.api';
 import { catalogApi } from '../../features/catalog/catalog.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { formatCurrency } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
+
+const extractError = useFirestoreAdmin ? extractFirebaseError : extractApiError;
 
 interface VariantDraft {
   sku: string;
@@ -31,11 +35,11 @@ export function AdminProducts() {
 
   const { data: productData } = useQuery({
     queryKey: ['admin-products'],
-    queryFn: () => adminApi.listProducts(),
+    queryFn: () => (useFirestoreAdmin ? firebaseAdminApi.listProducts() : adminApi.listProducts()),
   });
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => catalogApi.listCategories(),
+    queryFn: () => (useFirestoreAdmin ? firebaseAdminApi.listCategoriesAdmin() : catalogApi.listCategories()),
   });
 
   const resetForm = () => {
@@ -49,8 +53,8 @@ export function AdminProducts() {
   };
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      adminApi.createProduct({
+    mutationFn: () => {
+      const payload = {
         name,
         categoryId,
         description: description || undefined,
@@ -64,19 +68,23 @@ export function AdminProducts() {
           stock: Number(v.stock) || 0,
           isDefault: i === 0,
         })),
-      }),
+      };
+      return useFirestoreAdmin ? firebaseAdminApi.createProduct(payload) : adminApi.createProduct(payload);
+    },
     onSuccess: () => {
       resetForm();
       setShowForm(false);
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
     },
-    onError: (err) => setError(extractApiError(err)),
+    onError: (err) => setError(extractError(err)),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => adminApi.deleteProduct(id),
+    mutationFn: (id: string) => (useFirestoreAdmin ? firebaseAdminApi.deleteProduct(id) : adminApi.deleteProduct(id)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
   });
+
+  const [imageUrlDraft, setImageUrlDraft] = useState('');
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -86,10 +94,16 @@ export function AdminProducts() {
       const url = await adminApi.uploadImage(file, 'products');
       setImages((imgs) => [...imgs, url]);
     } catch (err) {
-      setError(extractApiError(err));
+      setError(extractError(err));
     } finally {
       setUploading(false);
     }
+  };
+
+  const addImageUrl = () => {
+    if (!imageUrlDraft.trim()) return;
+    setImages((imgs) => [...imgs, imageUrlDraft.trim()]);
+    setImageUrlDraft('');
   };
 
   const setVariant = (i: number, key: keyof VariantDraft, value: string) =>
@@ -137,8 +151,27 @@ export function AdminProducts() {
             <TextField label="GST %" type="number" value={gstRate} onChange={(e) => setGstRate(e.target.value)} />
             <div>
               <label className="mb-1.5 block text-sm font-medium">Images</label>
-              <input type="file" accept="image/*" onChange={onUpload} className="text-sm" />
-              {uploading && <span className="text-xs text-ink-muted">Uploading…</span>}
+              {useFirestoreAdmin ? (
+                // No Cloud Storage integration in this migration (see
+                // services/firebaseAdmin.ts header) — paste an image URL
+                // instead of uploading a file.
+                <div className="flex gap-2">
+                  <input
+                    placeholder="https://…"
+                    value={imageUrlDraft}
+                    onChange={(e) => setImageUrlDraft(e.target.value)}
+                    className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm"
+                  />
+                  <button type="button" onClick={addImageUrl} className="rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white">
+                    Add
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input type="file" accept="image/*" onChange={onUpload} className="text-sm" />
+                  {uploading && <span className="text-xs text-ink-muted">Uploading…</span>}
+                </>
+              )}
               <div className="mt-2 flex gap-2">
                 {images.map((img) => (
                   <img key={img} src={img} alt="" className="h-12 w-12 rounded-lg object-cover" />

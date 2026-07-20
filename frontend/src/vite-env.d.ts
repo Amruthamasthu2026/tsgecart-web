@@ -41,6 +41,15 @@ interface ImportMetaEnv {
   readonly VITE_USE_FIRESTORE_COUPONS?: string;
   readonly VITE_USE_FIRESTORE_REWARDS?: string;
   readonly VITE_USE_FIREBASE_RAZORPAY?: string;
+  readonly VITE_USE_FIRESTORE_NOTIFICATIONS?: string;
+  // Feature flag (Firebase migration Phase 6): when "true", the entire
+  // admin console (Dashboard/Orders/Products/Categories/Coupons/Rewards/
+  // Customers/Delivery) reads and writes Firestore
+  // (services/firebaseAdmin.ts) instead of the existing Express admin API,
+  // and the /admin route guard switches to Firebase Auth. Unset/false (the
+  // default) keeps the entire admin console on the existing Express API,
+  // unchanged.
+  readonly VITE_USE_FIRESTORE_ADMIN?: string;
 }
 
 interface ImportMeta {

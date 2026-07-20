@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { Button } from '../../components/ui/Button';
 import { formatCurrency } from '../../lib/format';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
+
+const api = useFirestoreAdmin ? firebaseAdminApi : adminApi;
+const extractError = useFirestoreAdmin ? extractFirebaseError : extractApiError;
 
 interface Row {
   cashbackAmount: string;
@@ -27,8 +32,8 @@ export function AdminRewards() {
   const [form, setForm] = useState<Row>(EMPTY);
   const [error, setError] = useState<string | null>(null);
 
-  const { data } = useQuery({ queryKey: ['reward-configs'], queryFn: adminApi.listRewardConfigs });
-  const { data: analytics } = useQuery({ queryKey: ['reward-analytics'], queryFn: adminApi.rewardAnalytics });
+  const { data } = useQuery({ queryKey: ['reward-configs'], queryFn: api.listRewardConfigs });
+  const { data: analytics } = useQuery({ queryKey: ['reward-analytics'], queryFn: api.rewardAnalytics });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['reward-configs'] });
@@ -37,7 +42,7 @@ export function AdminRewards() {
 
   const create = useMutation({
     mutationFn: () =>
-      adminApi.createRewardConfig({
+      api.createRewardConfig({
         cashbackAmount: Number(form.cashbackAmount),
         probability: Number(form.probability),
         minOrder: Number(form.minOrder) || 0,
@@ -46,18 +51,18 @@ export function AdminRewards() {
         sortOrder: data?.configs.length ?? 0,
       }),
     onSuccess: () => { setForm(EMPTY); setError(null); invalidate(); },
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
   const update = useMutation({
-    mutationFn: (vars: { id: string; payload: Record<string, unknown> }) => adminApi.updateRewardConfig(vars.id, vars.payload),
+    mutationFn: (vars: { id: string; payload: Record<string, unknown> }) => api.updateRewardConfig(vars.id, vars.payload),
     onSuccess: invalidate,
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
   const remove = useMutation({
-    mutationFn: (id: string) => adminApi.deleteRewardConfig(id),
+    mutationFn: (id: string) => api.deleteRewardConfig(id),
     onSuccess: invalidate,
   });
-  const seed = useMutation({ mutationFn: adminApi.seedRewardDefaults, onSuccess: invalidate });
+  const seed = useMutation({ mutationFn: api.seedRewardDefaults, onSuccess: invalidate });
 
   const total = data?.activeProbabilityTotal ?? 0;
   const spinnable = data?.isSpinnable ?? false;

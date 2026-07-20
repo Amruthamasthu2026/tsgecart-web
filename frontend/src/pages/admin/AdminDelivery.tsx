@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, type BulkImportResult } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { extractApiError } from '../../lib/apiClient';
+import { extractFirebaseError } from '../../features/firebaseAuth/firebaseAuth.schemas';
 import { parseAndValidate, parseCsv, type CsvRow } from '../../lib/pincodes';
+
+const api = useFirestoreAdmin ? firebaseAdminApi : adminApi;
+const extractError = useFirestoreAdmin ? extractFirebaseError : extractApiError;
 
 type Zone = { id: string; name: string };
 type Pincode = { id: string; code: string; isServiceable: boolean; zone?: { id: string; name: string } | null };
@@ -28,8 +33,8 @@ export function AdminDelivery() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [moveZoneId, setMoveZoneId] = useState('');
 
-  const { data: zones = [] } = useQuery<Zone[]>({ queryKey: ['admin-zones'], queryFn: adminApi.listZones });
-  const { data: pincodes = [] } = useQuery<Pincode[]>({ queryKey: ['admin-pincodes'], queryFn: adminApi.listPincodes });
+  const { data: zones = [] } = useQuery<Zone[]>({ queryKey: ['admin-zones'], queryFn: api.listZones });
+  const { data: pincodes = [] } = useQuery<Pincode[]>({ queryKey: ['admin-pincodes'], queryFn: api.listPincodes });
 
   const refreshPincodes = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-pincodes'] });
@@ -41,7 +46,7 @@ export function AdminDelivery() {
   // ── Mutations ──────────────────────────────────────────────
   const createZone = useMutation({
     mutationFn: () =>
-      adminApi.createZone({
+      api.createZone({
         name: zoneForm.name,
         deliveryCharge: Number(zoneForm.deliveryCharge) || 0,
         freeDeliveryLimit: Number(zoneForm.freeDeliveryLimit) || 0,
@@ -52,44 +57,50 @@ export function AdminDelivery() {
       setZoneForm({ name: '', deliveryCharge: '', freeDeliveryLimit: '', minEtaMinutes: '20', maxEtaMinutes: '45' });
       queryClient.invalidateQueries({ queryKey: ['admin-zones'] });
     },
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
 
   const createPincode = useMutation({
-    mutationFn: () => adminApi.createPincode({ code: pincodeForm.code, zoneId: pincodeForm.zoneId || undefined }),
+    mutationFn: () => api.createPincode({ code: pincodeForm.code, zoneId: pincodeForm.zoneId || undefined }),
     onSuccess: () => {
       setPincodeForm({ code: '', zoneId: '' });
       refreshPincodes();
     },
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
 
   const importMutation = useMutation({
     mutationFn: (items: { code: string; zoneName?: string }[]) =>
-      adminApi.bulkImportPincodes(items, bulkZoneId || undefined, mode),
+      api.bulkImportPincodes(items, bulkZoneId || undefined, mode),
     onSuccess: (r) => {
       setResult(r);
       setError(null);
       refreshPincodes();
     },
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
 
+  // Not ported to Firestore (see services/firebaseAdmin.ts header — no
+  // live Express frontend consumer of "Import Hyderabad" either); the
+  // button below is disabled with a note when useFirestoreAdmin is on.
   const hyderabadMutation = useMutation({
-    mutationFn: () => adminApi.importHyderabad(bulkZoneId || undefined),
+    mutationFn: () =>
+      useFirestoreAdmin
+        ? Promise.reject(new Error('Import Hyderabad pincodes is not available in Firebase mode.'))
+        : adminApi.importHyderabad(bulkZoneId || undefined),
     onSuccess: (r) => {
-      setResult(r);
+      setResult(r as BulkImportResult);
       setError(null);
       refreshPincodes();
     },
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
 
   const bulkAction = useMutation({
     mutationFn: (vars: { action: 'activate' | 'deactivate' | 'move' | 'delete'; zoneId?: string }) =>
-      adminApi.bulkActionPincodes([...selected], vars.action, vars.zoneId),
+      api.bulkActionPincodes([...selected], vars.action, vars.zoneId),
     onSuccess: refreshPincodes,
-    onError: (e) => setError(extractApiError(e)),
+    onError: (e) => setError(extractError(e)),
   });
 
   const onCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,13 +189,17 @@ export function AdminDelivery() {
       <section className="card mt-6 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-ink">Bulk import pincodes</h2>
-          <Button
-            variant="dark"
-            isLoading={hyderabadMutation.isPending}
-            onClick={() => hyderabadMutation.mutate()}
-          >
-            Import Hyderabad pincodes
-          </Button>
+          <div className="text-right">
+            <Button
+              variant="dark"
+              disabled={useFirestoreAdmin}
+              isLoading={hyderabadMutation.isPending}
+              onClick={() => hyderabadMutation.mutate()}
+            >
+              Import Hyderabad pincodes
+            </Button>
+            {useFirestoreAdmin && <p className="mt-1 text-xs text-ink-muted">Not available in Firebase mode — use CSV/paste import instead.</p>}
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">

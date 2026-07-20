@@ -279,12 +279,18 @@ service cloud.firestore {
     //   allow write: if hasPermission('banners.manage');
     // }
 
-    // match /notifications/{uid}/items/{notificationId} {
-    //   allow read: if isOwner(uid);
-    //   allow update: if isOwner(uid) &&
-    //     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
-    //   allow create, delete: if false; // Function-only
-    // }
+    // ── Notifications (Phase 6) ──────────────────────────────────────────
+    // Read + mark-read: direct client, owner-only — mark-read is scoped to
+    // ONLY the `isRead` field via `affectedKeys().hasOnly(...)`, so a client
+    // cannot rewrite the notification's content while "marking it read."
+    // Create/delete: Function-only (see notifications/notifications.function.ts's
+    // `sendNotification`, admin-gated).
+    match /notifications/{uid}/items/{notificationId} {
+      allow read: if isOwner(uid);
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create, delete: if false;
+    }
 
     // match /walletTransactions/{uid}/ledger/{transactionId} {
     //   allow read: if isOwner(uid) || hasPermission('customers.manage');
@@ -298,10 +304,14 @@ service cloud.firestore {
     //   allow write: if false; // Function-only
     // }
 
-    // match /platformSettings/{key} {
-    //   allow read: if resource.data.get('isPublic', false) == true || hasPermission('settings.manage');
-    //   allow write: if hasPermission('settings.manage');
-    // }
+    // ── Platform settings (Phase 6) ──────────────────────────────────────
+    // Matches the existing Express `Setting` model's real access pattern
+    // exactly: 100% admin-only (there is no public settings-read endpoint
+    // in the source app), so the Phase 1 draft's speculative "isPublic"
+    // public-read branch is dropped rather than kept unused.
+    match /platformSettings/{key} {
+      allow read, write: if hasPermission('settings.manage');
+    }
 
     // match /auditLogs/{logId} {
     //   allow read: if isAdmin();

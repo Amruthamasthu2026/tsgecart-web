@@ -1,5 +1,7 @@
 import { NavLink, Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useFirebaseAuth } from '../contexts/FirebaseAuthContext';
+import { useFirestoreAdmin } from '../services/firebaseAdmin';
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -14,8 +16,19 @@ const NAV = [
   { to: '/admin/banners', label: 'Banners' },
 ];
 
+/**
+ * Dual-auth-aware, migration Phase 6 — `VITE_USE_FIRESTORE_ADMIN` is a
+ * single umbrella flag (unlike the customer-side pages' priority-based
+ * per-feature model): it switches the ENTIRE admin console at once,
+ * including which auth system the sidebar reads the signed-in email from
+ * and signs out of. Legacy behavior is 100% unchanged when the flag is
+ * off — `legacy` is still the only hook consulted.
+ */
 export function AdminLayout() {
-  const { user, logout } = useAuth();
+  const legacy = useAuth();
+  const firebase = useFirebaseAuth();
+  const email = useFirestoreAdmin ? (firebase.user?.email ?? '') : (legacy.user?.email ?? '');
+  const logout = useFirestoreAdmin ? firebase.logout : legacy.logout;
 
   return (
     <div className="min-h-screen bg-gray-50 lg:grid lg:grid-cols-[240px_1fr]">
@@ -44,7 +57,7 @@ export function AdminLayout() {
           ))}
         </nav>
         <div className="border-t border-white/10 p-4 text-xs text-white/60">
-          <p className="truncate">{user?.email}</p>
+          <p className="truncate">{email}</p>
           <div className="mt-2 flex gap-2">
             <Link to="/" className="hover:text-brand">
               Storefront

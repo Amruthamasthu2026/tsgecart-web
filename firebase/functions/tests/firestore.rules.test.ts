@@ -637,6 +637,86 @@ describe('firestore.rules — orders / order items / status history / payment re
   });
 });
 
+describe('firestore.rules — notifications (Phase 6, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('notifications/user-1/items/notif-1').set({ type: 'ORDER', title: 'Order placed', isRead: false });
+    });
+  });
+
+  it('the owner can read their own notification', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('notifications/user-1/items/notif-1').get());
+  });
+
+  it('a different signed-in user cannot read someone else\'s notification', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('notifications/user-1/items/notif-1').get());
+  });
+
+  it('an anonymous caller cannot read any notification', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('notifications/user-1/items/notif-1').get());
+  });
+
+  it('the owner can mark their own notification read (isRead is the only mutable field)', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertSucceeds(owner.firestore().doc('notifications/user-1/items/notif-1').update({ isRead: true }));
+  });
+
+  it('the owner cannot change any field other than isRead', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    await assertFails(owner.firestore().doc('notifications/user-1/items/notif-1').update({ title: 'Tampered' }));
+  });
+
+  it('a different signed-in user cannot mark someone else\'s notification read', async () => {
+    const stranger = mainEnv.authenticatedContext('user-2');
+    await assertFails(stranger.firestore().doc('notifications/user-1/items/notif-1').update({ isRead: true }));
+  });
+
+  it('NO ONE can create or delete a notification directly — sendNotification Callable-only', async () => {
+    const owner = mainEnv.authenticatedContext('user-1');
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertFails(owner.firestore().doc('notifications/user-1/items/notif-2').set({ type: 'PROMO', title: 'Sale', isRead: false }));
+    await assertFails(admin.firestore().doc('notifications/user-1/items/notif-1').delete());
+  });
+});
+
+describe('firestore.rules — platformSettings (Phase 6, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('platformSettings/store.name').set({ value: 'TSG eCart' });
+    });
+  });
+
+  it('an anonymous caller cannot read a platform setting (no public settings endpoint in the source app)', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('platformSettings/store.name').get());
+  });
+
+  it('a signed-in CUSTOMER cannot read a platform setting', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('platformSettings/store.name').get());
+  });
+
+  it('STAFF WITHOUT settings.manage cannot read a platform setting', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['products.manage'] });
+    await assertFails(staff.firestore().doc('platformSettings/store.name').get());
+  });
+
+  it('STAFF WITH settings.manage can read and write a platform setting', async () => {
+    const staff = mainEnv.authenticatedContext('staff-2', { role: 'STAFF', permissions: ['settings.manage'] });
+    const db = staff.firestore();
+    await assertSucceeds(db.doc('platformSettings/store.name').get());
+    await assertSucceeds(db.doc('platformSettings/maintenanceMode').set({ value: false }));
+  });
+
+  it('an ADMIN can read and write a platform setting (implicitly holds every permission)', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('platformSettings/store.name').update({ value: 'TSG eCart Updated' }));
+  });
+});
+
 describe('firestore.rules — Phase 5 internal-only collections (unlisted, no rule needed)', () => {
   it('orderIdempotency is denied to everyone, including an ADMIN — Function/Admin-SDK-only bookkeeping', async () => {
     const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });

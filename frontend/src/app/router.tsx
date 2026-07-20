@@ -6,6 +6,7 @@ import { AuthLayout } from '../layouts/AuthLayout';
 import { AdminLayout } from '../layouts/AdminLayout';
 import { ProtectedRoute } from '../routes/ProtectedRoute';
 import { FirebaseProtectedRoute } from '../routes/FirebaseProtectedRoute';
+import { useFirestoreAdmin } from '../services/firebaseAdmin';
 
 // Code-split page bundles for faster initial load.
 const HomePage = lazy(() =>
@@ -181,19 +182,18 @@ export const router = createBrowserRouter([
       { path: 'orders', element: wrap(<OrdersPage />) },
       { path: 'orders/:id', element: wrap(<OrderDetailPage />) },
       { path: 'rewards', element: wrap(<RewardsPage />) },
+      // coupons/notifications moved out of the JWT-only ProtectedRoute block
+      // below (Phase 6), same rationale as every route above: each page now
+      // supports EITHER auth system and enforces its own sign-in check
+      // internally.
+      { path: 'coupons', element: wrap(<CouponsPage />) },
+      { path: 'notifications', element: wrap(<NotificationsPage />) },
       { path: 'about', element: wrap(<AboutPage />) },
       { path: 'contact', element: wrap(<ContactPage />) },
       { path: 'faq', element: wrap(<FaqPage />) },
       { path: 'privacy', element: wrap(<PrivacyPage />) },
       { path: 'terms', element: wrap(<TermsPage />) },
       { path: 'refunds', element: wrap(<RefundPage />) },
-      {
-        element: <ProtectedRoute />,
-        children: [
-          { path: 'coupons', element: wrap(<CouponsPage />) },
-          { path: 'notifications', element: wrap(<NotificationsPage />) },
-        ],
-      },
       {
         // Firebase-Auth-guarded routes — independent from the ProtectedRoute
         // block above, gated by FirebaseAuthContext instead of AuthContext.
@@ -204,7 +204,13 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    element: <ProtectedRoute roles={['ADMIN', 'STAFF']} />,
+    // Migration Phase 6 — the admin console's route guard switches
+    // wholesale on `VITE_USE_FIRESTORE_ADMIN` (evaluated once at module
+    // load, same convention as every other `useFirestoreX` flag constant
+    // in this codebase): Firebase-Auth-guarded when the flag is on, the
+    // original legacy-JWT `ProtectedRoute` guard otherwise — unchanged
+    // behavior for every existing ADMIN/STAFF user when the flag is off.
+    element: useFirestoreAdmin ? <FirebaseProtectedRoute roles={['ADMIN', 'STAFF']} /> : <ProtectedRoute roles={['ADMIN', 'STAFF']} />,
     children: [
       {
         path: 'admin',

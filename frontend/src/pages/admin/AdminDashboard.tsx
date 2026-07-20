@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '../../features/admin/admin.api';
+import { firebaseAdminApi, useFirestoreAdmin } from '../../services/firebaseAdmin';
 import { formatCurrency } from '../../lib/format';
+
+const api = useFirestoreAdmin ? firebaseAdminApi : adminApi;
 
 function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
@@ -12,18 +15,18 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
 }
 
 export function AdminDashboard() {
-  const { data: stats } = useQuery({ queryKey: ['admin-dashboard'], queryFn: adminApi.dashboard });
+  const { data: stats } = useQuery({ queryKey: ['admin-dashboard'], queryFn: api.dashboard });
   const { data: sales = [] } = useQuery({
     queryKey: ['admin-sales'],
-    queryFn: () => adminApi.salesTrend(14),
+    queryFn: () => api.salesTrend(14),
   });
   const { data: top = [] } = useQuery({
     queryKey: ['admin-top'],
-    queryFn: adminApi.topProducts,
+    queryFn: api.topProducts,
   });
   const { data: lowStock = [] } = useQuery({
     queryKey: ['admin-lowstock'],
-    queryFn: adminApi.lowStock,
+    queryFn: api.lowStock,
   });
 
   const maxRevenue = Math.max(1, ...sales.map((s) => s.revenue));

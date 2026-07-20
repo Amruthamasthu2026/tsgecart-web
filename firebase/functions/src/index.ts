@@ -5,11 +5,12 @@
  * Authentication functions (default signup claims + admin role management).
  * Phase 3 added read-only product/category catalog functions. Phase 4 added
  * product variants, transactional cart/inventory reservation, and address
- * management. Phase 5 adds atomic order creation (checkout), order
+ * management. Phase 5 added atomic order creation (checkout), order
  * lifecycle (cancel/admin status transitions), global + reward coupons,
  * the reward-spin wheel, and Razorpay (create/verify/webhook/refund).
- * Admin-analytics functions remain for a later, separately approved
- * migration phase — see docs/firebase-migration-audit.md.
+ * Phase 6 adds the admin dashboard: analytics, customer/staff management,
+ * inventory adjustment, product/variant admin CRUD, reward analytics,
+ * bulk pincode import, and admin-composed notifications.
  */
 
 export { health } from './health/health.function';
@@ -26,6 +27,12 @@ export { getProductVariants } from './catalog/variants.function';
 export { getCart, addCartItem, updateCartItemQuantity, removeCartItem, clearCart } from './cart/cart.function';
 export { addAddress, updateAddress, deleteAddress } from './addresses/addresses.function';
 export { validateCoupon } from './coupons/coupons.function';
-export { getRewardWheel, spinReward } from './rewards/rewards.function';
+export { getRewardWheel, spinReward, getRewardAnalytics } from './rewards/rewards.function';
 export { createOrder, cancelOrder, adminUpdateOrderStatus, createRazorpayOrder } from './orders/orders.function';
 export { verifyRazorpayPayment, razorpayWebhook, refundRazorpayPayment } from './payments/razorpay.function';
+export { sendNotification } from './notifications/notifications.function';
+export { adminAdjustInventory } from './inventory/inventory.function';
+export { adminUpsertProduct, adminDeleteProduct } from './catalog/adminProducts.function';
+export { adminListCustomers, adminSetCustomerActive, adminListStaff } from './admin/customers.function';
+export { getAdminDashboard, getSalesTrend, getTopProducts } from './admin/dashboard.function';
+export { adminBulkImportPincodes } from './delivery/delivery.function';

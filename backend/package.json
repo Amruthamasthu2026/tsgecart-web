@@ -23,7 +23,9 @@
     "export:firebase-variants": "tsx scripts/exportVariantsFromMysql.ts",
     "export:firebase-orders": "tsx scripts/exportOrdersFromMysql.ts",
     "export:firebase-coupons": "tsx scripts/exportCouponsFromMysql.ts",
-    "export:firebase-rewards": "tsx scripts/exportRewardsFromMysql.ts"
+    "export:firebase-rewards": "tsx scripts/exportRewardsFromMysql.ts",
+    "export:firebase-settings": "tsx scripts/exportSettingsFromMysql.ts",
+    "export:firebase-delivery": "tsx scripts/exportDeliveryFromMysql.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
