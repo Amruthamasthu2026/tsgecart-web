@@ -1,0 +1,23 @@
+{
+  "deliveryZones": [
+    {
+      "id": "hyderabad",
+      "name": "Hyderabad",
+      "description": "Hyderabad delivery zone",
+      "deliveryCharge": "50.00",
+      "freeDeliveryLimit": "499.00",
+      "minEtaMinutes": 20,
+      "maxEtaMinutes": 45,
+      "isActive": true
+    }
+  ],
+  "pincodes": [
+    {
+      "code": "500039",
+      "city": "Hyderabad",
+      "state": "Telangana",
+      "zoneId": "hyderabad",
+      "isServiceable": true
+    }
+  ]
+}
