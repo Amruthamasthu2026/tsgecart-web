@@ -1,18 +1,18 @@
 import { NavLink } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useNavigationAuth } from '../../hooks/useNavigationAuth';
 import { HomeIcon, GridIcon, CartIcon, HeartIcon, UserIcon } from '../ui/icons';
 
 export function MobileNav() {
   const { itemCount } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isNavigationAuthenticated, accountPath, loginPath } = useNavigationAuth();
 
   const items = [
     { to: '/', label: 'Home', Icon: HomeIcon, end: true },
     { to: '/products', label: 'Shop', Icon: GridIcon, end: false },
     { to: '/cart', label: 'Cart', Icon: CartIcon, end: false, badge: itemCount },
     { to: '/wishlist', label: 'Wishlist', Icon: HeartIcon, end: false },
-    { to: isAuthenticated ? '/account' : '/login', label: 'You', Icon: UserIcon, end: false },
+    { to: isNavigationAuthenticated ? accountPath : loginPath, label: 'You', Icon: UserIcon, end: false },
   ];
 
   return (

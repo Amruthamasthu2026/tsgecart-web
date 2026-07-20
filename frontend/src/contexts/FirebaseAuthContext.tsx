@@ -31,6 +31,7 @@ export interface FirebaseAuthUser {
   uid: string;
   email: string | null;
   emailVerified: boolean;
+  displayName: string | null;
   role: FirebaseRole;
   permissions: string[];
 }
@@ -56,6 +57,7 @@ function toAuthUser(firebaseUser: User, claims: Record<string, unknown>): Fireba
     uid: firebaseUser.uid,
     email: firebaseUser.email,
     emailVerified: firebaseUser.emailVerified,
+    displayName: firebaseUser.displayName,
     role,
     permissions,
   };

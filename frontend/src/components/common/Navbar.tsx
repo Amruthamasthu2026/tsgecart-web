@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
+import { useNavigationAuth } from '../../hooks/useNavigationAuth';
 import {
   SearchIcon,
   HeartIcon,
@@ -20,7 +20,7 @@ const NAV = [
 ];
 
 export function Navbar() {
-  const { isAuthenticated, user } = useAuth();
+  const { isNavigationAuthenticated, accountPath, loginPath, displayName, showAdminDashboard } = useNavigationAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -85,16 +85,16 @@ export function Navbar() {
             )}
           </Link>
 
-          {isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'STAFF') && (
+          {showAdminDashboard && (
             <Link to="/admin" className="btn-dark hidden px-4 py-2.5 text-xs lg:inline-flex">
               Admin
             </Link>
           )}
 
           <Link
-            to={isAuthenticated ? '/account' : '/login'}
+            to={isNavigationAuthenticated ? accountPath : loginPath}
             className="icon-btn"
-            aria-label={isAuthenticated ? user?.name ?? 'Account' : 'Sign in'}
+            aria-label={isNavigationAuthenticated ? displayName ?? 'Account' : 'Sign in'}
           >
             <UserIcon />
           </Link>

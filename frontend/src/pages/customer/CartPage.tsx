@@ -123,9 +123,15 @@ export function CartPage() {
     <div className="container-app py-8">
       <Seo title="Your Cart" noindex />
       <PageHeader title="Your cart" subtitle={`${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`} />
-      {useFirestoreCart && (
+      {firestoreCheckoutReady && (
         <p className="mt-2 rounded-2xl bg-brand-50 px-4 py-2 text-xs font-medium text-ink">
-          Loaded from Firestore (VITE_USE_FIRESTORE_CART). Checkout/delivery/coupons are not migrated yet.
+          Cart, delivery, coupons, and checkout are powered by Firestore.
+        </p>
+      )}
+      {useFirestoreCart && !firestoreCheckoutReady && (
+        <p className="mt-2 rounded-2xl bg-brand-50 px-4 py-2 text-xs font-medium text-ink">
+          Loaded from Firestore (VITE_USE_FIRESTORE_CART) — preview only. Checkout is not migrated yet
+          (VITE_USE_FIRESTORE_CHECKOUT).
         </p>
       )}
       {firestoreError && (
