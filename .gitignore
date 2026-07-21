@@ -63,3 +63,6 @@ pubsub-debug.log
 # automated tooling, but their output directory must never be committed)
 backend/scripts/output/
 
+
+# Production frontend environment
+frontend/.env.production
