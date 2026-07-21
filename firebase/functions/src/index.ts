@@ -11,6 +11,11 @@
  * Phase 6 adds the admin dashboard: analytics, customer/staff management,
  * inventory adjustment, product/variant admin CRUD, reward analytics,
  * bulk pincode import, and admin-composed notifications.
+ *
+ * Drive/Sheets bridge, Phase 1: admin image upload/delete/replace via
+ * Google Drive (not Firebase Storage) — Firestore stays the source of
+ * truth, Google Apps Script is the only thing that ever talks to Drive.
+ * See drive/drive.function.ts.
  */
 
 export { health } from './health/health.function';
@@ -36,3 +41,4 @@ export { adminUpsertProduct, adminDeleteProduct } from './catalog/adminProducts.
 export { adminListCustomers, adminSetCustomerActive, adminListStaff } from './admin/customers.function';
 export { getAdminDashboard, getSalesTrend, getTopProducts } from './admin/dashboard.function';
 export { adminBulkImportPincodes } from './delivery/delivery.function';
+export { adminUploadDriveImage, adminDeleteDriveImage, adminReplaceDriveImage } from './drive/drive.function';

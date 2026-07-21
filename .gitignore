@@ -69,3 +69,9 @@ frontend/.env.production
 
 # Private production migration exports
 backend/exports/firebase-production/
+
+# Google Apps Script (Drive/Sheets bridge) — clasp's real project binding,
+# never the .example template committed alongside it
+google-apps-script/.clasp.json
+
+

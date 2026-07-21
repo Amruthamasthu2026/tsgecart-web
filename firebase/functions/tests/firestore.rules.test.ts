@@ -717,6 +717,57 @@ describe('firestore.rules — platformSettings (Phase 6, real committed rules fi
   });
 });
 
+describe('firestore.rules — driveImageAssets (Drive/Sheets bridge Phase 1, real committed rules file)', () => {
+  beforeEach(async () => {
+    await mainEnv.withSecurityRulesDisabled(async (adminCtx) => {
+      await adminCtx.firestore().doc('driveImageAssets/fake-file-id').set({
+        fileId: 'fake-file-id',
+        imageUrl: 'https://lh3.googleusercontent.com/d/fake-file-id',
+        fileName: 'fake-file-id.jpg',
+        mimeType: 'image/jpeg',
+        size: 1024,
+        folder: 'products',
+      });
+    });
+  });
+
+  it('an anonymous caller cannot read a Drive image asset record', async () => {
+    const anon = mainEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().doc('driveImageAssets/fake-file-id').get());
+  });
+
+  it('a signed-in CUSTOMER cannot read a Drive image asset record', async () => {
+    const customer = mainEnv.authenticatedContext('customer-1', { role: 'CUSTOMER' });
+    await assertFails(customer.firestore().doc('driveImageAssets/fake-file-id').get());
+  });
+
+  it('STAFF WITHOUT products.manage cannot read a Drive image asset record', async () => {
+    const staff = mainEnv.authenticatedContext('staff-1', { role: 'STAFF', permissions: ['orders.manage'] });
+    await assertFails(staff.firestore().doc('driveImageAssets/fake-file-id').get());
+  });
+
+  it('STAFF WITH products.manage can read a Drive image asset record', async () => {
+    const staff = mainEnv.authenticatedContext('staff-2', { role: 'STAFF', permissions: ['products.manage'] });
+    await assertSucceeds(staff.firestore().doc('driveImageAssets/fake-file-id').get());
+  });
+
+  it('an ADMIN can read a Drive image asset record (implicitly holds every permission)', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    await assertSucceeds(admin.firestore().doc('driveImageAssets/fake-file-id').get());
+  });
+
+  it('NO ONE can write a Drive image asset record directly — not even an ADMIN — it is Function-only (upload/delete/replace go through Apps Script first)', async () => {
+    const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });
+    const db = admin.firestore();
+    await assertFails(
+      db
+        .doc('driveImageAssets/fabricated-id')
+        .set({ fileId: 'fabricated-id', imageUrl: 'https://example.test/fake.jpg', fileName: 'fake.jpg', mimeType: 'image/jpeg', size: 1, folder: 'products' }),
+    );
+    await assertFails(db.doc('driveImageAssets/fake-file-id').delete());
+  });
+});
+
 describe('firestore.rules — Phase 5 internal-only collections (unlisted, no rule needed)', () => {
   it('orderIdempotency is denied to everyone, including an ADMIN — Function/Admin-SDK-only bookkeeping', async () => {
     const admin = mainEnv.authenticatedContext('admin-1', { role: 'ADMIN' });

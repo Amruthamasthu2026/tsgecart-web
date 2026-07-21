@@ -313,6 +313,18 @@ service cloud.firestore {
       allow read, write: if hasPermission('settings.manage');
     }
 
+    // ── Drive image asset registry (Drive/Sheets bridge, Phase 1) ────────
+    // Function-only write: every entry is created/deleted by
+    // drive/drive.function.ts's Callables (using the Admin SDK, which
+    // bypasses these Rules) after a real Apps Script round trip — a direct
+    // client write here could fabricate a metadata record for a file that
+    // was never actually uploaded to Drive. STAFF/ADMIN with
+    // products.manage may read it (a future admin media-library view).
+    match /driveImageAssets/{fileId} {
+      allow read: if hasPermission('products.manage');
+      allow write: if false;
+    }
+
     // match /auditLogs/{logId} {
     //   allow read: if isAdmin();
     //   allow write: if false; // Function-only

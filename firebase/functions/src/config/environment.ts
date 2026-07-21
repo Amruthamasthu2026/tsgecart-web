@@ -26,6 +26,21 @@ export const razorpayKeyIdSecret = defineSecret('RAZORPAY_KEY_ID');
 export const razorpayKeySecretSecret = defineSecret('RAZORPAY_KEY_SECRET');
 export const razorpayWebhookSecretSecret = defineSecret('RAZORPAY_WEBHOOK_SECRET');
 
+/**
+ * Google Drive/Sheets bridge (Firestore → Drive → Sheets → Apps Script).
+ * `APPS_SCRIPT_URL` is the deployed Apps Script web app's `/exec` URL;
+ * `APPS_SCRIPT_SECRET` is a shared secret Apps Script's `doPost`/`doGet`
+ * checks on every request (see google-apps-script/src/Config.gs). Both are
+ * plain bridge configuration, not credentials to a third-party payment
+ * processor, but they still go through Secret Manager like the Razorpay
+ * secrets above — never `.env`, never committed, never read by any code
+ * path reachable from the frontend. Only `drive/driveClient.ts` and
+ * `sheets/sheetsClient.ts` ever call `.value()` on these, and only inside a
+ * Function that lists them in its own `secrets: [...]` option.
+ */
+export const appsScriptUrlSecret = defineSecret('APPS_SCRIPT_URL');
+export const appsScriptSecretSecret = defineSecret('APPS_SCRIPT_SECRET');
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),
   // Set automatically by the Firebase Emulator Suite; used to relax CORS and
