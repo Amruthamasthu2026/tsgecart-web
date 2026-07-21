@@ -84,19 +84,55 @@ export function toExportedCouponUsage(row: RedemptionRow): ExportedCouponUsage {
 async function main(): Promise<void> {
   const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'asc' } });
   const redemptions = await prisma.couponRedemption.findMany({
-    include: { coupon: { select: { code: true } }, order: { select: { orderNumber: true } } },
-    orderBy: { createdAt: 'asc' },
-  });
+  include: {
+    coupon: {
+      select: {
+        code: true,
+      },
+    },
+  },
+  orderBy: {
+    createdAt: 'asc',
+  },
+});
 
-  const exportedCoupons = coupons.map((c) => toExportedCoupon(c as unknown as CouponRow));
-  const exportedUsages = redemptions.map((r) =>
-    toExportedCouponUsage({
-      couponCode: r.coupon.code,
-      userId: r.userId,
-      orderNumber: r.order?.orderNumber ?? null,
-      createdAt: r.createdAt,
-    }),
-  );
+const redemptionOrderIds = redemptions
+  .map((redemption) => redemption.orderId)
+  .filter((orderId): orderId is string => orderId !== null);
+
+const redemptionOrders =
+  redemptionOrderIds.length > 0
+    ? await prisma.order.findMany({
+        where: {
+          id: {
+            in: redemptionOrderIds,
+          },
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+        },
+      })
+    : [];
+
+const orderNumberById = new Map(
+  redemptionOrders.map((order) => [order.id, order.orderNumber]),
+);
+
+const exportedCoupons = coupons.map((coupon) =>
+  toExportedCoupon(coupon as unknown as CouponRow),
+);
+
+const exportedUsages = redemptions.map((redemption) =>
+  toExportedCouponUsage({
+    couponCode: redemption.coupon.code,
+    userId: redemption.userId,
+    orderNumber: redemption.orderId
+      ? orderNumberById.get(redemption.orderId) ?? null
+      : null,
+    createdAt: redemption.createdAt,
+  }),
+);
 
   process.stdout.write(JSON.stringify({ coupons: exportedCoupons, usages: exportedUsages }, null, 2));
   process.stderr.write(
