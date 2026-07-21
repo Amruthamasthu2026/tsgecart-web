@@ -66,3 +66,6 @@ backend/scripts/output/
 
 # Production frontend environment
 frontend/.env.production
+
+# Private production migration exports
+backend/exports/firebase-production/
